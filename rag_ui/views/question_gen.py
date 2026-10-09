@@ -1,5 +1,6 @@
 import json, streamlit as st
-from core import backend as be, styles
+from core import styles
+from core import mock_backend as be
 styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
 with st.container(border=True):
     c1, c2, c3 = st.columns(3)

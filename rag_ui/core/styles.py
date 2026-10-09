@@ -18,7 +18,7 @@ html, body, .stApp, [class*="css"]{ font-family:'Inter',system-ui,-apple-system,
     var(--bg);
 }
 header[data-testid="stHeader"]{ background:transparent; }
-[data-testid="stToolbar"], [data-testid="stDecoration"], #MainMenu, footer{ display:none !important; }
+[data-testid="stDecoration"], #MainMenu, footer{ display:none !important; }
 
 /* kicker'ın kesilmesini önleyen üst boşluk */
 .block-container{ padding-top:3.5rem !important; padding-bottom:4rem; max-width:1100px; }

@@ -1,0 +1,1 @@
+"""Document chunking, embedding, indexing, and vector-store components."""

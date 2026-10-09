@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+.env
+data/chroma/
+data/uploads/
+*.mp4
+*.mkv
+*.avi
+models/

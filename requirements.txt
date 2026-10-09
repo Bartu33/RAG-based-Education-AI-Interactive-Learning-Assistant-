@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pyyaml
+python-dotenv
+numpy
+pandas
+scikit-learn
+chromadb>=0.5.5
+sentence-transformers
+PyMuPDF
+python-pptx
+python-docx
+faster-whisper
+openai
+pytest

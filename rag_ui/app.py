@@ -2,7 +2,12 @@ import streamlit as st
 from core.state import init_state, is_private
 from core import styles
 
-st.set_page_config(page_title="Interactive Learning Assistant", page_icon="🎓", layout="wide")
+st.set_page_config(
+    page_title="Interactive Learning Assistant",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 init_state(); styles.inject()
 
 pages = [

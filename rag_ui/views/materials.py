@@ -1,5 +1,6 @@
 import pandas as pd, streamlit as st
-from core import backend as be, styles
+from core import styles
+from core import mock_backend as be
 styles.kicker("RAG PIPELINE"); st.title("📚 Materials")
 cfg = st.session_state.cfg
 with st.container(border=True):

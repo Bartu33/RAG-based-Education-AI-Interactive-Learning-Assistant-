@@ -1,5 +1,6 @@
 import streamlit as st
-from core import backend as be, styles
+from core import styles
+from core import mock_backend as be
 styles.kicker("HALLUCINATION MEASUREMENT"); st.title("📊 Benchmark")
 cfg = st.session_state.cfg
 st.caption(f"Thresholds (RAGAs Faithfulness): ≥{cfg['th_grounded']} grounded · {cfg['th_partial']}–{cfg['th_grounded']} partially grounded · <{cfg['th_partial']} unsupported")

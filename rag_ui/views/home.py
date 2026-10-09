@@ -1,7 +1,7 @@
 import streamlit as st
 from core import styles
 
-styles.kicker("Project 08 · RAG-based Education AI")
+styles.kicker("RAG-based Education AI")
 
 st.markdown("""
 <div class="hero">

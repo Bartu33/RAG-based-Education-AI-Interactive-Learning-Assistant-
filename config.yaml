@@ -1,0 +1,57 @@
+llm:
+  provider: groq              # groq | openai | ollama (privacy mode)
+  fallback: []                # e.g. [openai]; ignored when provider is ollama
+  temperature: 0.2
+  max_tokens: 700
+  models:
+    groq: llama-3.3-70b-versatile
+    openai: gpt-4o-mini
+    ollama: mistral
+  base_urls:
+    groq: https://api.groq.com/openai/v1
+    openai: https://api.openai.com/v1
+    ollama: http://localhost:11434/v1
+
+ingestion:
+  whisper_model: small        # use large-v3 for final runs / lab GPU
+  whisper_device: auto
+  whisper_compute_type: auto
+  language: null              # null = auto-detect, or "tr" / "en"
+  confidence_threshold: 0.60
+
+indexing:
+  chunk_size: 500             # tokens
+  chunk_overlap: 75           # tokens
+  embedding_model: BAAI/bge-m3
+  max_seq_length: 1024
+  batch_size: 16
+  chroma_path: data/chroma
+  collection: course_chunks
+  hnsw_m: 16
+  hnsw_construction_ef: 100
+
+retrieval:
+  top_candidates: 20
+  top_context: 4
+  use_reranker: true
+  reranker_model: BAAI/bge-reranker-v2-m3
+  timestamp_boost: 0.15
+  window_extra_candidates: 5
+
+qa:
+  score_faithfulness: true    # one extra LLM call per answer
+
+grounding:
+  grounded_threshold: 0.85
+  partial_threshold: 0.50
+
+rubric:
+  factual_accuracy: 0.40
+  concept_coverage: 0.30
+  terminology: 0.20
+  completeness: 0.10
+
+benchmark:
+  sizes: [1000, 10000, 50000, 100000]
+  questions_path: data/sample/benchmark_questions.json
+  noise_std: 0.01

@@ -1,0 +1,1 @@
+"""Shared state, styles, and mock backend used by the Streamlit UI."""
