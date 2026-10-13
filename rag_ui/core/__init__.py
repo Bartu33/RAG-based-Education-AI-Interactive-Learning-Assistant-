@@ -1,1 +1,1 @@
-"""Shared state, styles, and mock backend used by the Streamlit UI."""
+"""Shared state, styles, and the HTTP client the Streamlit UI uses to talk to the backend."""

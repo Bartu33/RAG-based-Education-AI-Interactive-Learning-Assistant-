@@ -1,16 +1,47 @@
+import logging
+import os
 import shutil
+import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from backend.config import get_config, resolve_path
-from backend.indexing.indexer import index_file
+from backend.indexing.indexer import correct_chunk, index_file
 from backend.indexing.vectorstore import get_store
 from backend.ingestion import EXTENSIONS
 
-app = FastAPI(title="Interactive Learning Assistant API")
+log = logging.getLogger(__name__)
+_models = {"state": "not_loaded", "error": None}   # not_loaded | loading | ready | failed
+
+
+def _preload_models() -> None:
+    """Load (and on first run download) the embedding model and reranker before the first request,
+    so the first question does not time out in the UI."""
+    _models["state"] = "loading"
+    try:
+        from backend.indexing.embedder import _model as embedder
+        embedder()
+        if get_config()["retrieval"].get("use_reranker", True):
+            from backend.retrieval.reranker import _model as reranker
+            reranker()
+        _models["state"] = "ready"
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Model preload failed: %s", exc)
+        _models.update(state="failed", error=str(exc))
+
+
+@asynccontextmanager
+async def lifespan(_app):
+    if os.getenv("RAG_PRELOAD", "1") != "0":
+        threading.Thread(target=_preload_models, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Interactive Learning Assistant API", lifespan=lifespan)
 
 
 class AskRequest(BaseModel):
@@ -43,6 +74,10 @@ class BenchmarkRequest(BaseModel):
     provider: Optional[str] = None
 
 
+class ChunkUpdate(BaseModel):
+    text: str
+
+
 def _http(exc: Exception) -> HTTPException:
     if isinstance(exc, ValueError):
         return HTTPException(status_code=400, detail=str(exc))
@@ -51,7 +86,71 @@ def _http(exc: Exception) -> HTTPException:
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "provider": get_config()["llm"]["provider"]}
+    return {"status": "ok", "provider": get_config()["llm"]["provider"],
+            "models": _models["state"], "models_error": _models["error"]}
+
+
+@app.get("/config")
+def public_config():
+    """Read-only settings the UI shows or uses as defaults (they live in config.yaml)."""
+    cfg = get_config()
+    return {"provider": cfg["llm"]["provider"],
+            "embedding_model": cfg["indexing"]["embedding_model"],
+            "chunk_size": cfg["indexing"]["chunk_size"],
+            "chunk_overlap": cfg["indexing"]["chunk_overlap"],
+            "whisper_model": cfg["ingestion"]["whisper_model"],
+            "confidence_threshold": cfg["ingestion"]["confidence_threshold"],
+            "reranker_model": cfg["retrieval"]["reranker_model"],
+            "top_candidates": cfg["retrieval"]["top_candidates"],
+            "top_context": cfg["retrieval"]["top_context"],
+            "grounded_threshold": cfg["grounding"]["grounded_threshold"],
+            "partial_threshold": cfg["grounding"]["partial_threshold"],
+            "benchmark_sizes": cfg["benchmark"]["sizes"]}
+
+
+@app.get("/courses")
+def courses():
+    return {"courses": get_store().list_courses()}
+
+
+@app.get("/stats")
+def stats():
+    return get_store().stats()
+
+
+@app.delete("/courses/{course}")
+def delete_course(course: str, lecture: Optional[int] = None):
+    return {"deleted": get_store().delete_course(course, lecture)}
+
+
+@app.delete("/index")
+def clear_index():
+    get_store().clear()
+    return {"cleared": True}
+
+
+@app.get("/transcripts/low-confidence")
+def low_confidence(threshold: Optional[float] = Query(None, ge=0.0, le=1.0),
+                   course: Optional[str] = None, limit: int = Query(50, ge=1, le=500)):
+    if threshold is None:
+        threshold = get_config()["ingestion"]["confidence_threshold"]
+    hits = get_store().low_confidence(threshold, course or None, limit)
+    return {"segments": [{"id": h["id"], "text": h["text"], "document": h["metadata"]["document"],
+                          "course": h["metadata"]["course"], "lecture": h["metadata"]["lecture"],
+                          "start_ms": h["metadata"]["timestamp_start_ms"],
+                          "end_ms": h["metadata"]["timestamp_end_ms"],
+                          "confidence": h["metadata"]["confidence"]} for h in hits]}
+
+
+@app.put("/chunks/{chunk_id}")
+def update_chunk(chunk_id: str, body: ChunkUpdate):
+    try:
+        hit = correct_chunk(chunk_id, body.text)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"No chunk with id {chunk_id}")
+    except Exception as exc:  # noqa: BLE001
+        raise _http(exc)
+    return {"id": hit["id"], "text": hit["text"], "confidence": hit["metadata"]["confidence"]}
 
 
 @app.get("/documents")

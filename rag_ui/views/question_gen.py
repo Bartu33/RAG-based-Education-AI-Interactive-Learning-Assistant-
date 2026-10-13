@@ -1,17 +1,23 @@
 import json, streamlit as st
 from core import styles
-from core import mock_backend as be
+from core import api_client as api
+from core.state import QTYPES, course_picker, safe
 styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
 with st.container(border=True):
-    c1, c2, c3 = st.columns(3)
-    course = c1.selectbox("Course", list(be.COURSES), key="qg_course")
-    lecture = c2.selectbox("Lecture number", range(1, 15), index=4, key="qg_lec")
-    diff = c3.select_slider("Difficulty", ["Easy", "Medium", "Hard"], "Medium")
-    types = st.multiselect("Question formats", be.QTYPES, default=be.QTYPES[:2])
-    n = st.slider("Number of questions", 1, 20, 5)
+    course, lecture = course_picker("qg")
+    c1, c2 = st.columns(2)
+    diff = c1.select_slider("Difficulty", ["Easy", "Medium", "Hard"], "Medium")
+    n = c2.slider("Number of questions", 1, 20, 5)
+    types = st.multiselect("Question formats", QTYPES, default=QTYPES[:2])
     if st.button("Generate questions", type="primary", disabled=not types):
         with st.spinner("Retrieving context and generating questions…"):
-            st.session_state.questions = be.generate_questions(course, lecture, types, n, diff)
+            qs = safe(api.generate_questions, course, lecture, types, n, diff, st.session_state.cfg["provider"])
+        if qs is not None:
+            for q in qs:  # remembered so the evaluation page grades against the same material
+                q.update(course=course, lecture=lecture)
+            st.session_state.questions = qs
+            if len(qs) < n:
+                st.warning(f"{n - len(qs)} of {n} questions were dropped because the model returned them in an invalid format.")
 qs = st.session_state.questions
 if qs:
     st.download_button("⬇️ Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json")

@@ -1,5 +1,6 @@
 import streamlit as st
-from core.state import init_state, is_private
+from core.api_client import BASE_URL
+from core.state import backend_health, init_state, is_private
 from core import styles
 
 st.set_page_config(
@@ -26,4 +27,15 @@ with st.sidebar:
         st.success("🔒 Privacy mode: no data leaves your environment")
     else:
         st.info("🛡️ Hybrid mode: only 3–5 context chunks are sent to the API")
+    h = backend_health()
+    if h:
+        st.caption(f"🟢 Backend connected · default LLM: {h['provider']}")
+        if h.get("models") == "loading":
+            st.warning("⏳ Loading the embedding and reranker models (the first start downloads ~4 GB). "
+                       "Questions will be slow until this finishes.")
+        elif h.get("models") == "failed":
+            st.error(f"Model loading failed: {h.get('models_error')}")
+    else:
+        st.error(f"🔴 Backend offline ({BASE_URL})")
+        st.caption("Start it with `uvicorn backend.main:app`")
 st.navigation(pages).run()

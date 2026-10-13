@@ -8,3 +8,5 @@ data/uploads/
 *.mkv
 *.avi
 models/
+.pytest_cache/
+.vscode/

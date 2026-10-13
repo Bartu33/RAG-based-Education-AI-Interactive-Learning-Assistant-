@@ -1,5 +1,7 @@
 import streamlit as st
 from core import styles
+from core import api_client as api
+from core.state import cached_documents
 
 styles.kicker("RAG-based Education AI")
 
@@ -11,14 +13,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- yardımcı: kayıt alan adları çeviriden etkilenmesin ---
-def _chunks(d):
-    for k in ("Chunks", "chunks", "Parça"):
-        if k in d:
-            return d[k]
-    return 0
-
-docs = st.session_state.docs
+try:
+    docs = cached_documents()
+except api.ApiError:
+    docs = None
 
 # --- ana özellikler ---
 cards = [
@@ -46,12 +44,14 @@ for col, (n, t, d) in zip(st.columns(3, gap="medium"), steps):
 # --- istatistikler ---
 st.markdown("### Your study space")
 m = st.columns(4, gap="medium")
-m[0].metric("Documents", len(docs))
-m[1].metric("Indexed chunks", sum(_chunks(d) for d in docs))
+m[0].metric("Documents", "—" if docs is None else len(docs))
+m[1].metric("Indexed chunks", "—" if docs is None else sum(d["chunks"] for d in docs))
 m[2].metric("Questions asked", sum(1 for x in st.session_state.chat if x["role"] == "user"))
 m[3].metric("Practice questions", len(st.session_state.questions))
 
-if not docs:
+if docs is None:
+    st.warning("The backend is not reachable, so the counters are empty. Start it with `uvicorn backend.main:app`.")
+elif not docs:
     st.info("Nothing here yet. Start by adding your course materials.")
     st.page_link("views/materials.py", label="Upload materials →")
 

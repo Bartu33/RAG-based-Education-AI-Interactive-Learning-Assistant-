@@ -14,6 +14,19 @@ client = TestClient(main.app)
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200 and r.json()["status"] == "ok"
+    assert r.json()["models"] in ("not_loaded", "loading", "ready", "failed")
+
+
+def test_preload_reports_failure(monkeypatch):
+    import backend.indexing.embedder as emb
+
+    def boom():
+        raise OSError("no disk space")
+    monkeypatch.setattr(emb, "_model", boom)
+    monkeypatch.setattr(main, "_models", {"state": "not_loaded", "error": None})
+    main._preload_models()
+    h = client.get("/health").json()
+    assert h["models"] == "failed" and "no disk space" in h["models_error"]
 
 
 def test_documents(monkeypatch):
