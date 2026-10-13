@@ -1,0 +1,18 @@
+[
+  {"_readme": "One shared labelled set for retrieval (scripts/retrieval_bench eval), RAGAs threshold calibration and benchmark.py. Copy to data/eval_set.json. Fields: id, question, language (tr|en), course, lecture, ts_range_min (optional, minutes being watched), relevant (where the answer is: document + page/slide, or document + start_s/end_s for video), reference_answer (short model answer from the material), expert (filled by the advisor: faithfulness label grounded|partially_grounded|unsupported and a 0-100 grade of the system answer). Entries starting with '_' are ignored."},
+  {"id": "ceng336-l1-001", "question": "What is the difference between packet switching and circuit switching?",
+   "language": "en", "course": "CENG336", "lecture": 1,
+   "relevant": [{"document": "Chapter_1.pdf", "page": 39}, {"document": "Chapter_1.pdf", "page": 36}],
+   "reference_answer": "Packet switching shares link resources on demand (no call setup, good for bursty data, but queueing delay and loss); circuit switching reserves end-to-end resources for a call (guaranteed performance, idle capacity is wasted).",
+   "expert": {"faithfulness_label": null, "grade": null}},
+  {"id": "ceng336-l1-002", "question": "Paket anahtarlama ile devre anahtarlama arasındaki fark nedir?",
+   "language": "tr", "course": "CENG336", "lecture": 1,
+   "relevant": [{"document": "Chapter_1.pdf", "page": 39}, {"document": "Chapter_1.pdf", "page": 36}],
+   "reference_answer": "Paket anahtarlamada bağlantı kaynakları talebe göre paylaşılır; devre anahtarlamada uçtan uca kaynak çağrı için ayrılır.",
+   "expert": {"faithfulness_label": null, "grade": null}},
+  {"id": "ceng336-l1-003", "question": "Hocanın videoda anlattığı örnekte kuyruk gecikmesi neden arttı?",
+   "language": "tr", "course": "CENG336", "lecture": 1, "ts_range_min": [12, 14],
+   "relevant": [{"document": "Lecture01.mp4", "start_s": 720, "end_s": 800}],
+   "reference_answer": "...",
+   "expert": {"faithfulness_label": null, "grade": null}}
+]

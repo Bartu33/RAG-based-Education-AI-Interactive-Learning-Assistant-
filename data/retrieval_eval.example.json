@@ -1,0 +1,8 @@
+[
+  {"question": "_README: copy this file to data/retrieval_eval.json and label 30-50 real questions. 'relevant' lists where the answer really is: document + page/slide for pdf/pptx, document only for docx, document + start_s/end_s (seconds) for video. ts_range_min = minutes the student is watching (optional; used by the timestamp_boost sweep). Items whose question starts with '_' are ignored."},
+  {"question": "Nyquist örnekleme teoremi nedir?", "course": "CENG384", "lecture": 5,
+   "relevant": [{"document": "Oppenheim_Ch7.pdf", "page": 412}, {"document": "Slides_L5.pptx", "page": 18}]},
+  {"question": "Hocanın tahtada çizdiği örnekte aliasing neden oluştu?", "course": "CENG384", "lecture": 5,
+   "ts_range_min": [12, 14],
+   "relevant": [{"document": "Lecture05.mp4", "start_s": 720, "end_s": 800}]}
+]

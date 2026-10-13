@@ -1,0 +1,13 @@
+Synthetic 1024-d clustered vectors, 5 courses x 14 lectures, 100 queries. Machine: Linux 6.18.44-fc-v114, x86_64, Python 3.13.16, chromadb 1.5.9
+
+| chunks | M | ef_construction | ef_search | filter | write (chunks/s) | read course pool (ms) | search p50 (ms) | search p95 (ms) | recall@20 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1000 | 16 | 100 | 100 | none | 1461 | 23.5 | 3.1 | 5.7 | 1.0 |
+| 1000 | 16 | 100 | 100 | course | 1461 | 23.5 | 5.2 | 7.6 | 1.0 |
+| 1000 | 16 | 100 | 100 | course+lecture | 1461 | 23.5 | 5.7 | 11.6 | 1.0 |
+| 10000 | 16 | 100 | 100 | none | 1202 | 233.8 | 5.3 | 8.2 | 1.0 |
+| 10000 | 16 | 100 | 100 | course | 1202 | 233.8 | 14.5 | 19.4 | 1.0 |
+| 10000 | 16 | 100 | 100 | course+lecture | 1202 | 233.8 | 9.8 | 14.0 | 1.0 |
+| 50000 | 16 | 100 | 100 | none | 1096 | 1136.2 | 10.6 | 20.0 | 0.987 |
+| 50000 | 16 | 100 | 100 | course | 1096 | 1136.2 | 62.9 | 82.6 | 0.987 |
+| 50000 | 16 | 100 | 100 | course+lecture | 1096 | 1136.2 | 40.7 | 53.8 | 0.987 |

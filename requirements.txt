@@ -9,9 +9,11 @@ pandas
 scikit-learn
 chromadb>=0.5.5
 sentence-transformers
+transformers            # BGE-m3 tokenizer for token-based chunking
 PyMuPDF
 python-pptx
 python-docx
 faster-whisper
 openai
 pytest
+httpx                   # FastAPI TestClient (tests/test_api.py)

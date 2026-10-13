@@ -20,22 +20,37 @@ ingestion:
   confidence_threshold: 0.60
 
 indexing:
-  chunk_size: 500             # tokens
+  chunk_size: 500             # real BGE-m3 tokens (see backend/indexing/chunker.py)
   chunk_overlap: 75           # tokens
+  sentence_aware: true        # end chunks at a sentence boundary when one is near the limit
+  tokenizer: null             # null = tokenizer of embedding_model
   embedding_model: BAAI/bge-m3
+  embedding_device: auto      # auto | cuda | cpu | mps
+  embedding_fp16: true        # only used on cuda
   max_seq_length: 1024
-  batch_size: 16
+  batch_size: 16              # cpu
+  batch_size_gpu: 16          # measured: 8/16/32 equal speed on RTX 3050; safe on 4 GB VRAM
   chroma_path: data/chroma
   collection: course_chunks
   hnsw_m: 16
   hnsw_construction_ef: 100
+  hnsw_search_ef: 100         # query-time recall/latency trade-off (see docs/retrieval_report.md)
 
 retrieval:
   top_candidates: 20
   top_context: 4
   use_reranker: true
   reranker_model: BAAI/bge-reranker-v2-m3
-  timestamp_boost: 0.15
+  reranker_max_length: 512
+  reranker_batch_size: 16
+  rerank_min_score: 0.05      # all reranker scores below this -> keep the dense order (cross-lingual TR->EN)
+  dedupe_threshold: 0.9       # drop near-identical chunks (repeated slides); 0 = off
+  hybrid: false               # true = BM25 + dense fused with RRF (plan B for risk R2)
+  bm25_candidates: 20
+  bm25_prefix_len: 5          # Turkish prefix stemming; 0 = off
+  rrf_k: 60
+  timestamp_boost: 0.15       # added to the 0..1 reranker score inside the watched window
+  timestamp_decay_ms: 120000  # boost fades linearly to 0 this far outside the window; 0 = hard cut
   window_extra_candidates: 5
 
 qa:
@@ -53,5 +68,5 @@ rubric:
 
 benchmark:
   sizes: [1000, 10000, 50000, 100000]
-  questions_path: data/sample/benchmark_questions.json
+  questions_path: data/benchmark_questions.json
   noise_std: 0.01
