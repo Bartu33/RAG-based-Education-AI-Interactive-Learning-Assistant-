@@ -20,14 +20,15 @@ _models = {"state": "not_loaded", "error": None}   # not_loaded | loading | read
 
 def _preload_models() -> None:
     """Load (and on first run download) the embedding model and reranker before the first request,
-    so the first question does not time out in the UI."""
+    then run each once: the first inference on a GPU also initialises CUDA (seconds), which
+    otherwise lands on the first student's question."""
     _models["state"] = "loading"
     try:
-        from backend.indexing.embedder import _model as embedder
-        embedder()
+        from backend.indexing.embedder import embed_query
+        embed_query("warm-up")
         if get_config()["retrieval"].get("use_reranker", True):
-            from backend.retrieval.reranker import _model as reranker
-            reranker()
+            from backend.retrieval.reranker import rerank_scores
+            rerank_scores("warm-up", ["warm-up"])
         _models["state"] = "ready"
     except Exception as exc:  # noqa: BLE001
         log.warning("Model preload failed: %s", exc)
@@ -67,6 +68,7 @@ class EvaluateRequest(BaseModel):
     course: str
     lecture: Optional[int] = None
     provider: Optional[str] = None
+    reference_answer: Optional[str] = None   # model answer of a generated question
 
 
 class BenchmarkRequest(BaseModel):
@@ -76,6 +78,19 @@ class BenchmarkRequest(BaseModel):
 
 class ChunkUpdate(BaseModel):
     text: str
+
+
+class RatingRequest(BaseModel):
+    id: Optional[str] = None                   # rated item; a new rating with the same id replaces it
+    kind: str                                  # qa | evaluation
+    up: bool
+    comment: str = ""
+    context: Optional[dict] = None             # question, course, provider, score ... (no raw documents)
+
+
+class SusRequest(BaseModel):
+    responses: list[int]
+    comment: str = ""
 
 
 def _http(exc: Exception) -> HTTPException:
@@ -203,7 +218,8 @@ def generate(req: GenerateRequest):
 def evaluate(req: EvaluateRequest):
     from backend.tasks.evaluator import evaluate_answer
     try:
-        return evaluate_answer(req.question, req.answer, req.course, req.lecture, req.provider)
+        return evaluate_answer(req.question, req.answer, req.course, req.lecture, req.provider,
+                               req.reference_answer)
     except Exception as exc:  # noqa: BLE001
         raise _http(exc)
 
@@ -216,3 +232,29 @@ def benchmark(req: BenchmarkRequest):
     except Exception as exc:  # noqa: BLE001
         raise _http(exc)
     return {"rows": df.to_dict("records")}
+
+
+@app.post("/feedback")
+def feedback(req: RatingRequest):
+    from backend.evaluation.feedback import add_rating
+    try:
+        add_rating(req.kind, req.up, req.comment, req.context, req.id)
+    except ValueError as exc:
+        raise _http(exc)
+    return {"saved": True}
+
+
+@app.post("/survey")
+def survey(req: SusRequest):
+    from backend.evaluation.feedback import add_sus, sus_grade
+    try:
+        score = add_sus(req.responses, req.comment)
+    except ValueError as exc:
+        raise _http(exc)
+    return {"score": score, "grade": sus_grade(score)}
+
+
+@app.get("/feedback/summary")
+def feedback_summary():
+    from backend.evaluation.feedback import summary
+    return summary()

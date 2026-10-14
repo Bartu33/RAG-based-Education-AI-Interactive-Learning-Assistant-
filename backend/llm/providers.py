@@ -8,6 +8,12 @@ from backend.config import get_config
 
 log = logging.getLogger(__name__)
 _CACHE: dict = {}
+# gpt-oss models cite in their own format, e.g. "【3†L1-L4】"; the UI and prompts use "[3]"
+_NATIVE_CITATION = re.compile(r"【(\d+)†[^】]*】")
+
+
+def normalize_citations(text: str) -> str:
+    return _NATIVE_CITATION.sub(r"[\1]", text)
 
 
 class LLMProvider:
@@ -20,6 +26,7 @@ class LLMProvider:
         self.name = name
         self.model = cfg["models"][name]
         self.is_local = name == "ollama"
+        self.reasoning_effort = (cfg.get("reasoning_effort") or {}).get(name)
         key = "ollama" if self.is_local else os.getenv(f"{name.upper()}_API_KEY")
         if not key:
             raise RuntimeError(f"Missing {name.upper()}_API_KEY (set it in .env)")
@@ -29,9 +36,13 @@ class LLMProvider:
     def chat(self, messages: list[dict], temperature: Optional[float] = None,
              max_tokens: Optional[int] = None, json_mode: bool = False) -> str:
         cfg = get_config()["llm"]
+        max_tokens = max_tokens or cfg["max_tokens"]
         kwargs = dict(model=self.model, messages=messages,
-                      temperature=cfg["temperature"] if temperature is None else temperature,
-                      max_tokens=max_tokens or cfg["max_tokens"])
+                      temperature=cfg["temperature"] if temperature is None else temperature)
+        if self.reasoning_effort:  # reasoning tokens count against the limit, so leave room for them
+            kwargs["reasoning_effort"] = self.reasoning_effort
+            max_tokens += cfg.get("reasoning_extra_tokens", 1024)
+        kwargs["max_tokens"] = max_tokens
         if json_mode:
             try:
                 resp = self._client.chat.completions.create(
@@ -40,7 +51,7 @@ class LLMProvider:
                 resp = self._client.chat.completions.create(**kwargs)
         else:
             resp = self._client.chat.completions.create(**kwargs)
-        return resp.choices[0].message.content or ""
+        return normalize_citations(resp.choices[0].message.content or "")
 
 
 def resolve_provider_name(label: Optional[str]) -> Optional[str]:

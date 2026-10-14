@@ -19,10 +19,50 @@ def test_parse_json_handles_fences_and_prose():
 
 
 @pytest.mark.parametrize("label,expected", [
-    ("Groq (Llama 3)", "groq"), ("OpenAI (GPT-4o-mini)", "openai"),
+    ("Groq (GPT-OSS 120B)", "groq"), ("OpenAI (GPT-4o-mini)", "openai"),
     ("Ollama (Mistral) — Gizlilik modu", "ollama"), (None, None), ("", None)])
 def test_resolve_provider_name(label, expected):
     assert resolve_provider_name(label) == expected
+
+
+def test_native_citations_become_brackets():
+    text = "DSP is ... filtering 【3†L1-L4】. Cheaper【4†L6-L7】 and [2] stays."
+    assert providers.normalize_citations(text) == "DSP is ... filtering [3]. Cheaper[4] and [2] stays."
+
+
+def _capture_create(monkeypatch, name):
+    """Real LLMProvider with the HTTP call replaced; returns the kwargs sent to the API."""
+    monkeypatch.setenv(f"{name.upper()}_API_KEY", "test-key")
+    p = providers.LLMProvider(name)
+    sent = {}
+
+    class Msg:
+        content = "ok"
+
+    class Resp:
+        choices = [type("C", (), {"message": Msg})]
+
+    def create(**kw):
+        sent.update(kw)
+        return Resp
+    monkeypatch.setattr(p._client.chat.completions, "create", create)
+    return p, sent
+
+
+def test_reasoning_model_gets_effort_and_token_headroom(monkeypatch):
+    cfg = config.get_config()["llm"]
+    monkeypatch.setitem(cfg, "reasoning_effort", {"groq": "low"})
+    monkeypatch.setitem(cfg, "reasoning_extra_tokens", 1000)
+    p, sent = _capture_create(monkeypatch, "groq")
+    assert p.chat([], max_tokens=60) == "ok"
+    assert sent["reasoning_effort"] == "low" and sent["max_tokens"] == 1060
+
+
+def test_non_reasoning_provider_unchanged(monkeypatch):
+    monkeypatch.setitem(config.get_config()["llm"], "reasoning_effort", {"groq": "low"})
+    p, sent = _capture_create(monkeypatch, "openai")
+    p.chat([], max_tokens=60)
+    assert "reasoning_effort" not in sent and sent["max_tokens"] == 60
 
 
 class _Fake:
@@ -125,6 +165,15 @@ def test_concept_coverage_is_fuzzy_and_deterministic():
     assert concept_coverage(answer, []) is None
 
 
+def test_concept_coverage_accepts_grader_judgement_for_paraphrases():
+    from backend.tasks.evaluator import concept_coverage
+    answer = "The values at the same index n are added sample by sample."
+    concepts = [{"concept": "element-wise addition", "covered": True},   # paraphrase, judged covered
+                {"concept": "same index", "covered": False},             # words present -> still counts
+                {"concept": "commutativity", "covered": False}]
+    assert concept_coverage(answer, concepts) == pytest.approx(2 / 3)
+
+
 def test_rubric_total_uses_config_weights(monkeypatch):
     from backend.tasks import evaluator as ev
     chunk = {"text": "ctx", "metadata": {"source_type": "pdf", "document": "k.pdf", "page": 1}}
@@ -136,6 +185,14 @@ def test_rubric_total_uses_config_weights(monkeypatch):
     r = ev.evaluate_answer("q", "aliasing happens", "CENG384")
     # 0.4*1.0 + 0.3*1.0 (concept found) + 0.2*0.5 + 0.1*0.0 = 0.8
     assert r["total"] == 80 and [d["name"] for d in r["dims"]][0] == "Factual accuracy"
+
+
+def test_reference_answer_reaches_the_grader():
+    from backend.llm.prompts import build_eval_messages
+    chunk = {"text": "u(n)=1 for n>=0", "metadata": {"source_type": "pdf", "document": "k.pdf", "page": 1}}
+    with_ref = build_eval_messages("q", "a", [chunk], "u(n)=1 for n>=0, 0 for n<0")[1]["content"]
+    assert "MODEL ANSWER" in with_ref and "0 for n<0" in with_ref
+    assert "MODEL ANSWER" not in build_eval_messages("q", "a", [chunk])[1]["content"]
 
 
 def test_evaluation_without_material_is_refused(monkeypatch):

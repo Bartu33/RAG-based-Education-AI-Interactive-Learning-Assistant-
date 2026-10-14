@@ -35,3 +35,9 @@ backend runs elsewhere.
 ```bash
 python -m pytest -q
 ```
+"conda activate rag
+uvicorn backend.main:app"
+"conda activate rag
+streamlit run rag_ui/app.py --server.fileWatcherType none"
+"http://localhost:8000/health"
+"http://localhost:8501/"

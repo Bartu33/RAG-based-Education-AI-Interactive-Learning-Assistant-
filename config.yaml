@@ -4,9 +4,12 @@ llm:
   temperature: 0.2
   max_tokens: 700
   models:
-    groq: llama-3.3-70b-versatile
+    groq: openai/gpt-oss-120b   # llama-3.3-70b-versatile was retired by Groq on 2026-08-16
     openai: gpt-4o-mini
     ollama: mistral
+  reasoning_effort:           # only for reasoning models; the provider must accept the parameter
+    groq: low                 # low | medium | high
+  reasoning_extra_tokens: 1024  # added to max_tokens so hidden reasoning cannot eat the answer
   base_urls:
     groq: https://api.groq.com/openai/v1
     openai: https://api.openai.com/v1
@@ -70,3 +73,5 @@ benchmark:
   sizes: [1000, 10000, 50000, 100000]
   questions_path: data/benchmark_questions.json
   noise_std: 0.01
+feedback:
+  path: data/feedback        # thumbs ratings and SUS surveys (JSON lines); git-ignored

@@ -5,7 +5,7 @@ import streamlit as st
 from core import api_client as api
 from core.api_client import ApiError
 
-PROVIDERS = ["Groq (Llama 3)", "OpenAI (GPT-4o-mini)", "Ollama (Mistral) — Gizlilik modu"]
+PROVIDERS = ["Groq (GPT-OSS 120B)", "OpenAI (GPT-4o-mini)", "Ollama (Mistral) — Gizlilik modu"]
 QTYPES = ["Multiple Choice", "True/False", "Short Answer", "Conceptual/Computational"]
 
 DEFAULT_CFG = {
@@ -33,7 +33,8 @@ def init_state():
         st.session_state.cfg = backend_defaults()
     st.session_state.setdefault("chat", [])
     st.session_state.setdefault("questions", [])
-    st.session_state.setdefault("eval_target", None)
+    st.session_state.setdefault("checked", {})   # question id -> {"correct": bool} (choice questions)
+    st.session_state.setdefault("graded", {})    # question id -> rubric result (open-ended questions)
     st.session_state.setdefault("eval_history", [])
 
 
@@ -92,6 +93,53 @@ def course_picker(key: str, all_lectures: bool = True) -> tuple[str, Optional[in
     lecture = c2.selectbox("Lecture number", options, key=f"{key}_lecture",
                            format_func=lambda x: "All lectures" if x is None else f"Lecture {x}")
     return course, lecture
+
+
+def feedback_widget(kind: str, rating_id: str, context: dict) -> None:
+    """👍/👎 under an answer or an evaluation; 👎 opens an optional comment. Sent to the backend at
+    once; a changed thumb or an added comment replaces the earlier rating (same id)."""
+    key = f"fb_{rating_id}"
+    sent = st.session_state.setdefault("ratings_sent", {})
+    value = st.feedback("thumbs", key=key)
+    if value is None:
+        return
+    up = value == 1
+    if sent.get(rating_id) != up:
+        if safe(api.rate, rating_id, kind, up, "", context) is not None:
+            sent[rating_id] = up
+    if up:
+        st.caption("Thanks for the feedback!")
+        return
+    with st.form(f"why_{rating_id}", border=False):
+        why = st.text_input("What was wrong? (optional)", key=f"why_txt_{rating_id}",
+                            placeholder="e.g. wrong source, incomplete, too long…")
+        if st.form_submit_button("Send") and why.strip():
+            if safe(api.rate, rating_id, kind, False, why, context) is not None:
+                st.caption("Thanks, noted.")
+
+
+def render_evaluation(r: dict, rating_id: Optional[str] = None, question: str = "") -> None:
+    """Rubric score, per-dimension bars, feedback and follow-up question of one graded answer.
+    With rating_id, a 👍/👎 asks whether the feedback was helpful."""
+    c1, c2 = st.columns([1, 2])
+    c1.metric("Overall score", f"{r['total']} / 100")
+    with c2:
+        for d in r["dims"]:
+            st.write(f"**{d['name']}** · weight {int(d['weight']*100)}% · {int(d['score']*100)}/100")
+            st.progress(d["score"])
+    st.markdown("**Detailed feedback**")
+    for f in r["feedback"]: st.write(f)
+    st.caption(f"📎 Reference: {r['source']}")
+    if r["follow_up_question"]:
+        st.info(f"🎯 **Follow-up practice:** {r['follow_up_question']}")
+    if rating_id:
+        st.caption("Was this feedback helpful?")
+        feedback_widget("evaluation", rating_id, {"question": question, "score": r["total"]})
+
+
+def is_choice(q: dict) -> bool:
+    """Multiple choice and true/false questions are checked on the spot, not graded with the rubric."""
+    return bool(q.get("options")) or "true" in q["type"].lower()
 
 
 def label_for(score: Optional[float]):

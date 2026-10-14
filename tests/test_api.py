@@ -20,13 +20,24 @@ def test_health():
 def test_preload_reports_failure(monkeypatch):
     import backend.indexing.embedder as emb
 
-    def boom():
+    def boom(*a):
         raise OSError("no disk space")
-    monkeypatch.setattr(emb, "_model", boom)
+    monkeypatch.setattr(emb, "embed_query", boom)
     monkeypatch.setattr(main, "_models", {"state": "not_loaded", "error": None})
     main._preload_models()
     h = client.get("/health").json()
     assert h["models"] == "failed" and "no disk space" in h["models_error"]
+
+
+def test_preload_runs_each_model_once(monkeypatch):
+    import backend.indexing.embedder as emb
+    import backend.retrieval.reranker as rr
+    calls = []
+    monkeypatch.setattr(emb, "embed_query", lambda t: calls.append("embed"))
+    monkeypatch.setattr(rr, "rerank_scores", lambda q, ts: calls.append("rerank"))
+    monkeypatch.setattr(main, "_models", {"state": "not_loaded", "error": None})
+    main._preload_models()
+    assert calls == ["embed", "rerank"] and main._models["state"] == "ready"
 
 
 def test_documents(monkeypatch):

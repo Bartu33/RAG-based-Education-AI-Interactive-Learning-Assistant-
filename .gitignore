@@ -10,3 +10,4 @@ data/uploads/
 models/
 .pytest_cache/
 .vscode/
+data/feedback/

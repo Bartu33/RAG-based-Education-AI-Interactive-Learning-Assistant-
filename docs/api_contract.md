@@ -97,13 +97,14 @@ progress, see `index_file(on_progress=...)`).
 ```json
 {"question": "Paket anahtarlama nedir?", "course": "CENG336", "lecture": 1,
  "ts_range": [12, 14],
- "config": {"provider": "Groq (Llama 3)", "top_k_candidates": 20, "top_k_context": 4}}
+ "config": {"provider": "Groq (GPT-OSS 120B)", "top_k_candidates": 20, "top_k_context": 4}}
 ```
 `lecture`, `ts_range` (minutes the student is watching), `config` are optional.
 `config.provider` accepts the UI label; it is mapped with `resolve_provider_name`.
 
 ```json
 {"answer": "...[1][2]",
+ "found": true,
  "faithfulness": 0.92,
  "sources": [
    {"type": "pdf", "document": "Chapter_1.pdf", "page": 39, "start_ms": null, "end_ms": null,
@@ -112,8 +113,10 @@ progress, see `index_file(on_progress=...)`).
  "retrieval_ms": 140, "total_s": 2.3, "tokens_sent": 1850,
  "candidates": 20, "filtered_from": 93, "provider": "groq"}
 ```
-No chunk found → `answer` = "I could not find this in the approved course materials.",
-`faithfulness` = 1.0, `sources` = [].
+`found` is `false` when the material does not cover the question: either nothing was retrieved
+(`sources` = []) or the model replied with the `[NO_INFO]` marker the QA prompt asks for (the marker
+is removed; `sources` then lists the closest passages that were checked). In both cases
+`faithfulness` = 1.0 (no claim was made) and no faithfulness LLM call is spent.
 
 ### `POST /generate`
 ```json
@@ -131,8 +134,11 @@ No chunk found → `answer` = "I could not find this in the approved course mate
 
 ### `POST /evaluate`
 ```json
-{"question": "...", "answer": "student's free text", "course": "CENG336", "lecture": 1, "provider": null}
+{"question": "...", "answer": "student's free text", "course": "CENG336", "lecture": 1, "provider": null,
+ "reference_answer": "model answer of a generated question (optional)"}
 ```
+Multiple-choice and true/false questions are checked in the UI against `correct_answer`; only
+open-ended answers come here.
 ```json
 {"total": 72,
  "dims": [
@@ -155,6 +161,31 @@ No chunk found → `answer` = "I could not find this in the approved course mate
    "Hallucination (%)": 4.0, "Intrinsic (%)": 1.0, "Extrinsic (%)": 3.0}
 ]}
 ```
+
+### `POST /feedback`
+A 👍/👎 on one Q&A answer (`kind` = `qa`) or one rubric evaluation (`evaluation`). A later rating
+with the same `id` (changed thumb, added comment) replaces the earlier one in the summary.
+```json
+{"id": "9ecc414edc91", "kind": "qa", "up": false, "comment": "wrong page",
+ "context": {"question": "...", "course": "CENG336", "found": true, "faithfulness": 0.9}}
+```
+→ `{"saved": true}`; unknown `kind` → `400`.
+
+### `POST /survey`
+System Usability Scale: 10 answers from 1 (strongly disagree) to 5 (strongly agree).
+```json
+{"responses": [4, 2, 4, 2, 4, 2, 4, 2, 4, 2], "comment": ""}
+```
+→ `{"score": 75.0, "grade": "Good"}` (0–100; grades after Bangor et al., 2009); wrong length/value → `400`.
+
+### `GET /feedback/summary`
+```json
+{"ratings": {"qa": {"count": 12, "up": 10, "down": 2, "positive_pct": 83.3},
+             "evaluation": {"count": 5, "up": 4, "down": 1, "positive_pct": 80.0}},
+ "sus": {"count": 8, "mean": 76.9, "stdev": 9.4, "grade": "Good"},
+ "comments": [{"kind": "qa", "up": false, "comment": "wrong page", "time": "..."}]}
+```
+Stored as JSON lines in `feedback.path` (`data/feedback/`, git-ignored because it holds student text).
 
 ## Not exposed yet (backend functions exist)
 

@@ -1,7 +1,7 @@
-import json, streamlit as st
+import json, uuid, streamlit as st
 from core import styles
 from core import api_client as api
-from core.state import QTYPES, course_picker, safe
+from core.state import QTYPES, course_picker, is_choice, render_evaluation, safe
 styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
 with st.container(border=True):
     course, lecture = course_picker("qg")
@@ -16,20 +16,82 @@ with st.container(border=True):
             for q in qs:  # remembered so the evaluation page grades against the same material
                 q.update(course=course, lecture=lecture)
             st.session_state.questions = qs
+            st.session_state.checked, st.session_state.graded = {}, {}
             if len(qs) < n:
                 st.warning(f"{n - len(qs)} of {n} questions were dropped because the model returned them in an invalid format.")
 qs = st.session_state.questions
+checked, graded = st.session_state.checked, st.session_state.graded
+
 if qs:
-    st.download_button("⬇️ Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json")
+    top = st.columns([3, 1])
+    choice_qs = [q for q in qs if is_choice(q)]
+    open_scores = [graded[q["id"]]["total"] for q in qs if q["id"] in graded]
+    parts = []
+    if choice_qs:
+        right = sum(1 for q in choice_qs if checked.get(q["id"], {}).get("correct"))
+        parts.append(f"Choice questions: {right} of {len(choice_qs)} correct "
+                     f"({sum(1 for q in choice_qs if q['id'] in checked)} checked)")
+    if len(choice_qs) < len(qs):
+        avg = f", average {sum(open_scores) / len(open_scores):.0f}/100" if open_scores else ""
+        parts.append(f"Open questions: {len(open_scores)} of {len(qs) - len(choice_qs)} graded{avg}")
+    top[0].caption(" · ".join(parts))
+    top[1].download_button("⬇️ Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json")
+
+
+def explanation(q):
+    st.write(q["explanation"]); st.caption(f"📎 {q['source']}")
+
+
 for i, q in enumerate(qs, 1):
     with st.container(border=True):
         st.markdown(f'<span class="pill">{q["type"]}</span><span class="pill">{q["difficulty"]}</span>', unsafe_allow_html=True)
         st.markdown(f"**{i}. {q['question']}**")
-        if q["options"]:
-            for k, o in zip("ABCD", q["options"]): st.write(f"{k}) {o}")
-        with st.expander("Answer and explanation"):
-            st.success(q["correct_answer"]); st.write(q["explanation"]); st.caption(f"📎 {q['source']}")
-        if st.button("Answer this question →", key=q["id"]):
-            st.session_state.eval_target = q; st.switch_page("views/evaluation.py")
+        if is_choice(q):
+            # graded locally: the correct answer is part of the question, so no LLM call is needed
+            options = q["options"] or ["True", "False"]
+            labels = [f"{k}) {o}" for k, o in zip("ABCD", options)] if q["options"] else options
+            done = checked.get(q["id"])
+            pick = st.radio("Your answer", labels, index=None, key=f"pick_{q['id']}",
+                            disabled=done is not None, label_visibility="collapsed")
+            if done is None:
+                if st.button("Check", key=f"check_{q['id']}", type="primary", disabled=pick is None):
+                    chosen = options[labels.index(pick)]
+                    correct = chosen.strip().lower() == str(q["correct_answer"]).strip().lower()
+                    checked[q["id"]] = {"correct": correct}
+                    st.rerun()
+            else:
+                if done["correct"]:
+                    st.success("✅ Correct")
+                else:
+                    key = str(q["correct_answer"]).strip().lower()
+                    right = next((l for o, l in zip(options, labels) if o.strip().lower() == key), q["correct_answer"])
+                    st.error(f"❌ Not quite. The correct answer is **{right}**.")
+                explanation(q)
+                if st.button("Try again", key=f"retry_{q['id']}"):
+                    checked.pop(q["id"]); st.session_state.pop(f"pick_{q['id']}", None); st.rerun()
+        else:
+            # open-ended: graded with the rubric, using the generated model answer as a reference
+            result = graded.get(q["id"])
+            text = st.text_area("Your answer", key=f"txt_{q['id']}", height=110, disabled=result is not None,
+                                placeholder="Write your answer here…", label_visibility="collapsed")
+            if result is None:
+                if st.button("Evaluate", key=f"eval_{q['id']}", type="primary"):
+                    if not text.strip():
+                        st.warning("Write your answer first.")
+                    else:
+                        with st.spinner("Scoring with the rubric…"):
+                            r = safe(api.evaluate, q["question"], text, q["course"], q["lecture"],
+                                     st.session_state.cfg["provider"], q["correct_answer"])
+                        if r:
+                            r["rid"] = uuid.uuid4().hex[:12]
+                            graded[q["id"]] = r
+                            st.session_state.eval_history.append({"Question": q["question"], "Score": r["total"]})
+                            st.rerun()
+            else:
+                render_evaluation(result, result.get("rid"), q["question"])
+                with st.expander("Model answer"):
+                    st.success(q["correct_answer"]); explanation(q)
+                if st.button("Try again", key=f"retry_{q['id']}"):
+                    graded.pop(q["id"]); st.session_state.pop(f"txt_{q['id']}", None); st.rerun()
 if not qs:
     st.info("No questions generated yet.")

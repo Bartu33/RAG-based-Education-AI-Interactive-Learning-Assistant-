@@ -28,12 +28,18 @@ def _covered(concept: str, answer_tokens: list[str]) -> bool:
         any(SequenceMatcher(None, p, a).ratio() >= 0.85 for a in answer_tokens) for p in parts)
 
 
-def concept_coverage(answer: str, concepts: list[str]) -> Optional[float]:
-    """Deterministic: share of key concepts mentioned in the answer (fuzzy token match)."""
+def concept_coverage(answer: str, concepts: list) -> Optional[float]:
+    """Share of key concepts the answer covers. A concept counts when the grader marked it covered
+    (catches paraphrases) or its words appear in the answer (fuzzy token match, a deterministic
+    check that does not depend on the LLM). Items are {"concept", "covered"} dicts or plain strings."""
     if not concepts:
         return None
     toks = _tokens(answer)
-    return sum(_covered(c, toks) for c in concepts) / len(concepts)
+    hits = 0
+    for c in concepts:
+        name, judged = (c.get("concept", ""), c.get("covered") is True) if isinstance(c, dict) else (str(c), False)
+        hits += judged or _covered(name, toks)
+    return hits / len(concepts)
 
 
 def terminology_score(answer: str, context: str) -> float:
@@ -50,13 +56,14 @@ def terminology_score(answer: str, context: str) -> float:
 
 
 def evaluate_answer(question: str, student_answer: str, course: str,
-                    lecture: Optional[int] = None, provider: Optional[str] = None) -> dict:
+                    lecture: Optional[int] = None, provider: Optional[str] = None,
+                    reference_answer: Optional[str] = None) -> dict:
     r = retrieve(question, course, lecture)
     chunks = r["chunks"]
     if not chunks:
         raise ValueError("No indexed material found for this question.")
 
-    text, _ = chat_with_fallback(build_eval_messages(question, student_answer, chunks),
+    text, _ = chat_with_fallback(build_eval_messages(question, student_answer, chunks, reference_answer),
                                  provider=resolve_provider_name(provider),
                                  temperature=0.0, max_tokens=900, json_mode=True)
     data = parse_json(text)

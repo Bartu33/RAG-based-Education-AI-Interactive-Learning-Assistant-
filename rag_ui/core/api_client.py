@@ -127,12 +127,26 @@ def generate_questions(course: str, lecture: Optional[int], types: list[str], n:
 
 
 def evaluate(question: str, answer: str, course: str, lecture: Optional[int] = None,
-             provider: Optional[str] = None) -> dict:
+             provider: Optional[str] = None, reference_answer: Optional[str] = None) -> dict:
     body = {"question": question, "answer": answer, "course": course, "lecture": lecture,
-            "provider": provider}
+            "provider": provider, "reference_answer": reference_answer}
     return _call("POST", "/evaluate", json=body)
 
 
 def benchmark(sizes: Optional[list[int]] = None, provider: Optional[str] = None) -> list[dict]:
     return _call("POST", "/benchmark", json={"sizes": sizes, "provider": provider},
                  timeout=LONG)["rows"]
+
+
+# --- feedback (usability / satisfaction) ---
+def rate(rating_id: str, kind: str, up: bool, comment: str = "", context: Optional[dict] = None) -> dict:
+    return _call("POST", "/feedback", json={"id": rating_id, "kind": kind, "up": up,
+                                            "comment": comment, "context": context})
+
+
+def submit_sus(responses: list[int], comment: str = "") -> dict:
+    return _call("POST", "/survey", json={"responses": responses, "comment": comment})
+
+
+def feedback_summary() -> dict:
+    return _call("GET", "/feedback/summary")

@@ -11,6 +11,14 @@ from backend.retrieval.retriever import retrieve
 from backend.schemas import chunk_to_source
 
 NO_INFO = "I could not find this in the approved course materials."
+NO_INFO_MARKER = "[NO_INFO]"   # the QA prompt asks the model to start "not covered" replies with it
+
+
+def split_no_info(answer: str) -> tuple[str, bool]:
+    """(answer without the marker, found). found=False when the model said the material lacks it."""
+    if NO_INFO_MARKER not in answer:
+        return answer, True
+    return answer.replace(NO_INFO_MARKER, "").strip() or NO_INFO, False
 
 
 def answer_question(question: str, course: str, lecture: Optional[int] = None,
@@ -26,19 +34,22 @@ def answer_question(question: str, course: str, lecture: Optional[int] = None,
                  top_context=overrides.get("top_k_context"), store=store)
     chunks = r["chunks"]
     if not chunks:  # nothing retrieved: nothing claimed, so nothing hallucinated
-        return {"answer": NO_INFO, "faithfulness": 1.0, "sources": [], "contexts": [],
+        return {"answer": NO_INFO, "found": False, "faithfulness": 1.0, "sources": [], "contexts": [],
                 "retrieval_ms": r["retrieval_ms"], "total_s": round(perf_counter() - t0, 2),
                 "tokens_sent": 0, "candidates": r["candidates"], "filtered_from": r["filtered_from"]}
 
     messages = build_qa_messages(question, chunks)
     answer, used = chat_with_fallback(messages, provider=provider)
+    answer, found = split_no_info(answer)
     contexts = [c["text"] for c in chunks]
 
     faith = None  # if disabled in config.yaml the UI must handle None
-    if get_config()["qa"]["score_faithfulness"]:
+    if not found:
+        faith = 1.0  # a "not covered" reply makes no claim, so there is nothing to verify
+    elif get_config()["qa"]["score_faithfulness"]:
         faith = faithfulness_score(answer, contexts, used)
 
-    return {"answer": answer, "faithfulness": faith,
+    return {"answer": answer, "found": found, "faithfulness": faith,
             "sources": [chunk_to_source(c) for c in chunks], "contexts": contexts,
             "retrieval_ms": r["retrieval_ms"], "total_s": round(perf_counter() - t0, 2),
             "tokens_sent": sum(count_tokens(m["content"]) for m in messages),

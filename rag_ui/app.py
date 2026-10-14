@@ -18,6 +18,7 @@ pages = [
     st.Page("views/question_gen.py", title="Question Generation", icon="📝"),
     st.Page("views/evaluation.py", title="Answer Evaluation", icon="✅"),
     st.Page("views/benchmark.py", title="Benchmark", icon="📊"),
+    st.Page("views/survey.py", title="Feedback", icon="📋"),
     st.Page("views/settings.py", title="Settings", icon="⚙️"),
 ]
 with st.sidebar:
