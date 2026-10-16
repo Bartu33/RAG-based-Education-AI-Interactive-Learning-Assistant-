@@ -22,7 +22,7 @@ except api.ApiError:
 cards = [
     ("card_qa", "💬", "Ask a question", "Get answers grounded in your course, with sources you can check.", "views/qa.py"),
     ("card_gen", "📝", "Practice questions", "Multiple choice, true/false, short answer and conceptual questions.", "views/question_gen.py"),
-    ("card_eval", "✅", "Check my answer", "Rubric-based score with clear feedback on what you missed.", "views/evaluation.py"),
+    ("card_eval", "📒", "My results", "Every practice question you answered, with your answer and the correct one.", "views/history.py"),
     ("card_mat", "📚", "Course materials", "Upload slides, notes, textbooks and lecture videos.", "views/materials.py"),
 ]
 for col, (key, icon, title, desc, page) in zip(st.columns(4, gap="medium"), cards):

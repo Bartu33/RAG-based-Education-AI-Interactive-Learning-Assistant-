@@ -1,7 +1,7 @@
 import json, uuid, streamlit as st
 from core import styles
 from core import api_client as api
-from core.state import QTYPES, course_picker, is_choice, render_evaluation, safe
+from core.state import QTYPES, course_picker, is_choice, record_attempt, render_evaluation, safe, token
 styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
 with st.container(border=True):
     course, lecture = course_picker("qg")
@@ -13,10 +13,14 @@ with st.container(border=True):
         with st.spinner("Retrieving context and generating questions…"):
             qs = safe(api.generate_questions, course, lecture, types, n, diff, st.session_state.cfg["provider"])
         if qs is not None:
-            for q in qs:  # remembered so the evaluation page grades against the same material
-                q.update(course=course, lecture=lecture)
+            # one generated set = one test in My Results; its questions are stored with it
+            test_id = safe(api.create_test, token(), course, lecture, diff, qs) if qs else None
+            for q in qs:  # grading uses the same course material; answers are saved under the test
+                q.update(course=course, lecture=lecture, test_id=test_id)
             st.session_state.questions = qs
             st.session_state.checked, st.session_state.graded = {}, {}
+            for k in [k for k in st.session_state if str(k).startswith(("pick_", "txt_"))]:
+                del st.session_state[k]  # fresh answer widgets for the new set
             if len(qs) < n:
                 st.warning(f"{n - len(qs)} of {n} questions were dropped because the model returned them in an invalid format.")
 qs = st.session_state.questions
@@ -58,6 +62,7 @@ for i, q in enumerate(qs, 1):
                     chosen = options[labels.index(pick)]
                     correct = chosen.strip().lower() == str(q["correct_answer"]).strip().lower()
                     checked[q["id"]] = {"correct": correct}
+                    record_attempt(q, pick, is_correct=correct)
                     st.rerun()
             else:
                 if done["correct"]:
@@ -85,7 +90,7 @@ for i, q in enumerate(qs, 1):
                         if r:
                             r["rid"] = uuid.uuid4().hex[:12]
                             graded[q["id"]] = r
-                            st.session_state.eval_history.append({"Question": q["question"], "Score": r["total"]})
+                            record_attempt(q, text, result=r)
                             st.rerun()
             else:
                 render_evaluation(result, result.get("rid"), q["question"])

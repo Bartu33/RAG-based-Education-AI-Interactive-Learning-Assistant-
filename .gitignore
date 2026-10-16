@@ -11,3 +11,5 @@ models/
 .pytest_cache/
 .vscode/
 data/feedback/
+data/app.db
+data/history.db

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 
 from backend.config import get_config, resolve_path
@@ -86,6 +86,28 @@ class RatingRequest(BaseModel):
     up: bool
     comment: str = ""
     context: Optional[dict] = None             # question, course, provider, score ... (no raw documents)
+
+
+class Credentials(BaseModel):
+    student_no: str
+    password: str
+
+
+class TestRequest(BaseModel):
+    course: str
+    lecture: Optional[int] = None
+    difficulty: Optional[str] = None
+    questions: list[dict]
+
+
+class AttemptRequest(BaseModel):
+    test_id: str
+    question_id: str
+    student_answer: str
+    is_correct: Optional[bool] = None          # choice questions
+    score: Optional[int] = None                # open questions (rubric total)
+    feedback: Optional[list[str]] = None
+    dims: Optional[list[dict]] = None
 
 
 class SusRequest(BaseModel):
@@ -258,3 +280,78 @@ def survey(req: SusRequest):
 def feedback_summary():
     from backend.evaluation.feedback import summary
     return summary()
+
+
+# --- student accounts (practice history is per student) ---
+def current_student(authorization: Optional[str] = Header(None)) -> str:
+    from backend.users import student_for
+    token = authorization.removeprefix("Bearer ").strip() if authorization else None
+    student = student_for(token)
+    if not student:
+        raise HTTPException(status_code=401, detail="Please log in again")
+    return student
+
+
+@app.post("/auth/register")
+def register(body: Credentials):
+    from backend.users import register as create
+    try:
+        return {"token": create(body.student_no, body.password), "student_no": body.student_no.strip()}
+    except ValueError as exc:
+        raise _http(exc)
+
+
+@app.post("/auth/login")
+def login(body: Credentials):
+    from backend.users import login as check
+    try:
+        return {"token": check(body.student_no, body.password), "student_no": body.student_no.strip()}
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc))
+
+
+@app.get("/auth/me")
+def me(student: str = Depends(current_student)):
+    return {"student_no": student}
+
+
+@app.post("/auth/logout")
+def logout(authorization: Optional[str] = Header(None)):
+    from backend.users import logout as end
+    if authorization:
+        end(authorization.removeprefix("Bearer ").strip())
+    return {"logged_out": True}
+
+
+# --- practice history (My Results) ---
+@app.post("/tests")
+def create_test(req: TestRequest, student: str = Depends(current_student)):
+    from backend.evaluation.history import create_test as save
+    try:
+        return {"id": save(student, req.course, req.lecture, req.difficulty, req.questions)}
+    except ValueError as exc:
+        raise _http(exc)
+
+
+@app.post("/attempts")
+def add_attempt(req: AttemptRequest, student: str = Depends(current_student)):
+    from backend.evaluation.history import add_attempt as save
+    try:
+        return {"id": save(student, req.test_id, req.question_id, req.student_answer,
+                           req.is_correct, req.score, req.feedback, req.dims)}
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise _http(exc)
+
+
+@app.get("/history")
+def history(student: str = Depends(current_student)):
+    from backend.evaluation.history import list_tests
+    return list_tests(student)
+
+
+@app.delete("/history")
+def clear_history(student: str = Depends(current_student)):
+    from backend.evaluation.history import delete_history
+    return {"deleted_tests": delete_history(student)}

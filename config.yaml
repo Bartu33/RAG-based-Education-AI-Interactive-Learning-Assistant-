@@ -75,3 +75,6 @@ benchmark:
   noise_std: 0.01
 feedback:
   path: data/feedback        # thumbs ratings and SUS surveys (JSON lines); git-ignored
+
+database:
+  path: data/app.db          # accounts, practice tests and answers (SQLite); git-ignored

@@ -150,3 +150,38 @@ def submit_sus(responses: list[int], comment: str = "") -> dict:
 
 def feedback_summary() -> dict:
     return _call("GET", "/feedback/summary")
+
+
+# --- accounts (the token is passed per call: this module is shared by every browser session) ---
+def _auth(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def register(student_no: str, password: str) -> dict:
+    return _call("POST", "/auth/register", json={"student_no": student_no, "password": password})
+
+
+def login(student_no: str, password: str) -> dict:
+    return _call("POST", "/auth/login", json={"student_no": student_no, "password": password})
+
+
+def logout(token: str) -> dict:
+    return _call("POST", "/auth/logout", headers=_auth(token))
+
+
+# --- practice history (My Results) ---
+def create_test(token: str, course: str, lecture: Optional[int], difficulty: str, questions: list[dict]) -> str:
+    body = {"course": course, "lecture": lecture, "difficulty": difficulty, "questions": questions}
+    return _call("POST", "/tests", json=body, headers=_auth(token))["id"]
+
+
+def save_attempt(token: str, attempt: dict) -> dict:
+    return _call("POST", "/attempts", json=attempt, headers=_auth(token))
+
+
+def history(token: str) -> dict:
+    return _call("GET", "/history", headers=_auth(token))
+
+
+def clear_history(token: str) -> dict:
+    return _call("DELETE", "/history", headers=_auth(token))

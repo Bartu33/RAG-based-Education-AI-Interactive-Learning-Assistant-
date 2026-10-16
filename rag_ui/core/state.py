@@ -35,7 +35,7 @@ def init_state():
     st.session_state.setdefault("questions", [])
     st.session_state.setdefault("checked", {})   # question id -> {"correct": bool} (choice questions)
     st.session_state.setdefault("graded", {})    # question id -> rubric result (open-ended questions)
-    st.session_state.setdefault("eval_history", [])
+    st.session_state.setdefault("auth", None)     # {"token", "student_no"} after logging in
 
 
 # --- cached backend reads (cleared after every write) ---
@@ -135,6 +135,43 @@ def render_evaluation(r: dict, rating_id: Optional[str] = None, question: str = 
     if rating_id:
         st.caption("Was this feedback helpful?")
         feedback_widget("evaluation", rating_id, {"question": question, "score": r["total"]})
+
+
+def token() -> str:
+    return st.session_state.auth["token"]
+
+
+def log_out(reason: Optional[str] = None) -> None:
+    """Forget the session (the backend token is dropped too) and show the login page."""
+    if st.session_state.auth:
+        try:
+            api.logout(token())
+        except ApiError:
+            pass
+    for key in list(st.session_state):  # the next person on this browser starts clean
+        if key != "cfg":
+            del st.session_state[key]
+    init_state()
+    st.session_state.login_notice = reason
+    st.rerun()
+
+
+def record_attempt(q: dict, student_answer: str, is_correct=None, result: Optional[dict] = None) -> None:
+    """Save one checked / graded answer to the student's history (My Results). A failure is shown
+    but does not block practising; an expired login sends the student back to the login page."""
+    if not q.get("test_id"):
+        st.warning("This answer could not be saved to My Results (the test was not registered).")
+        return
+    attempt = {"test_id": q["test_id"], "question_id": q["id"], "student_answer": student_answer,
+               "is_correct": is_correct}
+    if result:
+        attempt.update(score=result["total"], feedback=result["feedback"], dims=result["dims"])
+    try:
+        api.save_attempt(token(), attempt)
+    except ApiError as exc:
+        if exc.status == 401:
+            log_out("Your session expired, please log in again.")
+        st.error(f"Could not save to My Results: {exc}")
 
 
 def is_choice(q: dict) -> bool:

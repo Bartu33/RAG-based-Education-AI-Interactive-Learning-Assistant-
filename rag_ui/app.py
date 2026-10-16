@@ -1,6 +1,6 @@
 import streamlit as st
 from core.api_client import BASE_URL
-from core.state import backend_health, init_state, is_private
+from core.state import backend_health, init_state, is_private, log_out
 from core import styles
 
 st.set_page_config(
@@ -11,12 +11,13 @@ st.set_page_config(
 )
 init_state(); styles.inject()
 
-pages = [
+# nothing but the login page until the student has logged in
+pages = [st.Page("views/login.py", title="Log in", icon="🔑")] if not st.session_state.auth else [
     st.Page("views/home.py", title="Overview", icon="🏠", default=True),
     st.Page("views/materials.py", title="Materials", icon="📚"),
     st.Page("views/qa.py", title="Q&A", icon="💬"),
     st.Page("views/question_gen.py", title="Question Generation", icon="📝"),
-    st.Page("views/evaluation.py", title="Answer Evaluation", icon="✅"),
+    st.Page("views/history.py", title="My Results", icon="📒"),
     st.Page("views/benchmark.py", title="Benchmark", icon="📊"),
     st.Page("views/survey.py", title="Feedback", icon="📋"),
     st.Page("views/settings.py", title="Settings", icon="⚙️"),
@@ -24,6 +25,11 @@ pages = [
 with st.sidebar:
     st.markdown("### 🎓 Learning Assistant")
     st.caption("Hybrid RAG · Privacy-focused")
+    if st.session_state.auth:
+        a, b = st.columns([3, 2], vertical_alignment="center")
+        a.markdown(f"👤 **{st.session_state.auth['student_no']}**")
+        if b.button("Log out", width="stretch"):
+            log_out()
     if is_private():
         st.success("🔒 Privacy mode: no data leaves your environment")
     else:

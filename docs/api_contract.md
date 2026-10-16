@@ -138,7 +138,8 @@ is removed; `sources` then lists the closest passages that were checked). In bot
  "reference_answer": "model answer of a generated question (optional)"}
 ```
 Multiple-choice and true/false questions are checked in the UI against `correct_answer`; only
-open-ended answers come here.
+open-ended answers come here (from the Question Generation page, with the model answer as
+`reference_answer`).
 ```json
 {"total": 72,
  "dims": [
@@ -186,6 +187,45 @@ System Usability Scale: 10 answers from 1 (strongly disagree) to 5 (strongly agr
  "comments": [{"kind": "qa", "up": false, "comment": "wrong page", "time": "..."}]}
 ```
 Stored as JSON lines in `feedback.path` (`data/feedback/`, git-ignored because it holds student text).
+
+### Accounts: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`
+```json
+{"student_no": "220201032", "password": "secret1"}
+```
+→ `{"token": "...", "student_no": "220201032"}`. Register: 3–32 letters/digits/`._-`, password ≥ 6
+characters, an existing number → `400`. Wrong number or password → `401`. Send the token as
+`Authorization: Bearer <token>` to the history endpoints below; a missing/expired token → `401`
+(sessions last 30 days, logout deletes the token). Passwords are stored as salted PBKDF2-SHA256 hashes.
+
+### `POST /tests` (logged in)
+One "Generate questions" run. The questions are stored with the test, so unanswered ones can be shown.
+```json
+{"course": "CENG336", "lecture": 1, "difficulty": "Medium", "questions": [{"id": "a1b2c3d4", "type": "...",
+ "question": "...", "options": ["..."], "correct_answer": "...", "explanation": "...", "source": "..."}]}
+```
+→ `{"id": "<test id>"}`.
+
+### `POST /attempts` (logged in)
+```json
+{"test_id": "...", "question_id": "a1b2c3d4", "student_answer": "B) ...", "is_correct": false,
+ "score": null, "feedback": null, "dims": null}
+```
+`is_correct` for choice questions, `score` (+ `feedback`, `dims`) for open ones. Someone else's or an
+unknown test → `404`; a question not in the test or an empty answer → `400`.
+
+### `GET /history` / `DELETE /history` (logged in)
+Tests newest first, each with its questions and the latest attempt per question (`null` = not answered).
+```json
+{"tests": [{"id": "...", "number": 3, "created": "2026-10-16T14:20:03+00:00", "course": "CENG336",
+            "lecture": 1, "difficulty": "Medium",
+            "questions": [{"id": "...", "question": "...", "correct_answer": "...",
+                           "attempt": {"student_answer": "...", "is_correct": false, "score": null,
+                                       "feedback": null, "tries": 2, "time": "..."}}],
+            "summary": {"questions": 5, "answered": 4, "choice": {"count": 3, "correct": 2},
+                        "open": {"count": 1, "average": 72.0}}}],
+ "summary": {"tests": 3, "questions": 15, "answered": 12, "choice": {"...": "..."}, "open": {"...": "..."}}}
+```
+`DELETE` → `{"deleted_tests": 3}`. Everything lives in SQLite at `database.path` (`data/app.db`, git-ignored).
 
 ## Not exposed yet (backend functions exist)
 
