@@ -59,6 +59,18 @@ retrieval:
 qa:
   score_faithfulness: true    # one extra LLM call per answer
 
+study:                        # Interactive Learning page: chat limited to the one open document
+  top_context: 4              # excerpts sent with a question
+  page_boost: 0.05            # prefer chunks on the page / video moment the student is looking at
+  use_reranker: false         # off for speed: the document's own chunks are few already
+  rerank_candidates: 10
+  overview_chunks: 12         # excerpts spread over the document for summary / key concepts
+  max_chunk_chars: 1500
+  explain_window_ms: 60000    # video "explain this moment": +/- 1 minute
+  history_turns: 3            # earlier Q/A pairs sent so follow-up questions work
+  max_tokens: 900
+  max_tokens_long: 1600       # summary / key concepts / explain
+
 grounding:
   grounded_threshold: 0.85
   partial_threshold: 0.50

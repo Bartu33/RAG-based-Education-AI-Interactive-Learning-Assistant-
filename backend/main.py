@@ -115,6 +115,20 @@ class SusRequest(BaseModel):
     comment: str = ""
 
 
+class StudyRequest(BaseModel):
+    course: str
+    document: str
+    mode: str = "ask"                          # ask | summary | questions | explain | concepts
+    question: str = ""
+    language: str = "en"                       # en | tr: language of the answer
+    page: Optional[int] = None                 # page / slide the student is looking at
+    time_ms: Optional[int] = None              # video: the moment the student is at
+    section: Optional[str] = None              # docx: the section the student is reading
+    history: Optional[list[dict]] = None       # earlier turns [{"role", "content"}], oldest first
+    provider: Optional[str] = None
+    stream: bool = False
+
+
 def _http(exc: Exception) -> HTTPException:
     if isinstance(exc, ValueError):
         return HTTPException(status_code=400, detail=str(exc))
@@ -224,6 +238,72 @@ def ask(req: AskRequest):
         raise _http(exc)
     result.pop("contexts", None)
     return result
+
+
+# --- Interactive Learning: one open document + a study-buddy chat limited to it ---
+def _study_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, (LookupError, FileNotFoundError)):
+        return HTTPException(status_code=404, detail=str(exc))
+    return _http(exc)
+
+
+@app.get("/study/document")
+def study_document(course: str, document: str):
+    from backend.tasks.study import outline
+    try:
+        return outline(course, document)
+    except Exception as exc:  # noqa: BLE001
+        raise _study_error(exc)
+
+
+@app.get("/study/page")
+def study_page(course: str, document: str, page: int = Query(1, ge=1),
+               zoom: float = Query(1.5, ge=0.5, le=3.0)):
+    from fastapi.responses import Response
+    from backend.tasks.study import render_page
+    try:
+        png = render_page(course, document, page, zoom)
+    except Exception as exc:  # noqa: BLE001
+        raise _study_error(exc)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=3600"})
+
+
+@app.get("/study/file")
+def study_file(course: str, document: str):
+    """The original upload, shown inline (used by the video player)."""
+    from fastapi.responses import FileResponse
+    from backend.tasks.study import upload_path
+    try:
+        path = upload_path(course, document)
+    except Exception as exc:  # noqa: BLE001
+        raise _study_error(exc)
+    return FileResponse(path, filename=path.name, content_disposition_type="inline")
+
+
+@app.post("/study/chat")
+def study_chat(req: StudyRequest):
+    """With stream=true the body is one JSON line (sources, timings) followed by the answer text
+    as it is generated."""
+    import json
+    from fastapi.responses import StreamingResponse
+    from backend.tasks.study import study_answer, study_stream
+    kwargs = req.model_dump(exclude={"provider", "stream"})
+    try:
+        if not req.stream:
+            return study_answer(provider=req.provider, **kwargs)
+        meta, pieces = study_stream(provider=req.provider, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        raise _study_error(exc)
+
+    def body():
+        yield json.dumps(meta, ensure_ascii=False) + "\n"
+        try:
+            yield from pieces
+        except Exception as exc:  # noqa: BLE001  (headers are sent: report it in the text)
+            log.warning("Study chat failed: %s", exc)
+            yield f"\n\n⚠️ The language model is not reachable right now ({exc})."
+    return StreamingResponse(body(), media_type="text/plain; charset=utf-8",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.post("/generate")

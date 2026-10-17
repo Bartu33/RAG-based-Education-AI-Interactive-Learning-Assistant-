@@ -53,6 +53,35 @@ class LLMProvider:
             resp = self._client.chat.completions.create(**kwargs)
         return normalize_citations(resp.choices[0].message.content or "")
 
+    def chat_stream(self, messages: list[dict], temperature: Optional[float] = None,
+                    max_tokens: Optional[int] = None):
+        """Yield the answer piece by piece as the model writes it (Interactive Learning chat)."""
+        cfg = get_config()["llm"]
+        max_tokens = max_tokens or cfg["max_tokens"]
+        kwargs = dict(model=self.model, messages=messages, stream=True,
+                      temperature=cfg["temperature"] if temperature is None else temperature)
+        if self.reasoning_effort:
+            kwargs["reasoning_effort"] = self.reasoning_effort
+            max_tokens += cfg.get("reasoning_extra_tokens", 1024)
+        kwargs["max_tokens"] = max_tokens
+        pending = ""  # a native citation such as "【3†L1-L4】" may arrive split over several pieces
+        for event in self._client.chat.completions.create(**kwargs):
+            if not event.choices:
+                continue
+            piece = getattr(event.choices[0].delta, "content", None)
+            if not piece:
+                continue
+            pending += piece
+            cut = pending.rfind("【")
+            if cut != -1 and "】" not in pending[cut:]:
+                ready, pending = pending[:cut], pending[cut:]
+            else:
+                ready, pending = pending, ""
+            if ready:
+                yield normalize_citations(ready)
+        if pending:
+            yield normalize_citations(pending)
+
 
 def resolve_provider_name(label: Optional[str]) -> Optional[str]:
     """Map a UI label such as 'Ollama (Mistral) - Privacy mode' to a provider key."""
@@ -91,6 +120,30 @@ def chat_with_fallback(messages: list[dict], provider: Optional[str] = None, **k
             log.warning("LLM provider %s failed: %s", name, exc)
             last = exc
     raise RuntimeError(f"All LLM providers failed: {last}")
+
+
+def stream_with_fallback(messages: list[dict], provider: Optional[str] = None,
+                         used: Optional[dict] = None, **kwargs):
+    """Stream from the primary provider. If it fails before writing anything, fall back to
+    chat_with_fallback (one full reply). `used["provider"]` reports who answered."""
+    used = used if used is not None else {}
+    name = _default_name(provider)
+    started = False
+    try:
+        for piece in get_provider(name).chat_stream(messages, **kwargs):
+            started = True
+            yield piece
+        used["provider"] = name
+        return
+    except Exception as exc:  # noqa: BLE001
+        if started:  # half an answer is on screen already: say so instead of repeating it
+            log.warning("LLM stream from %s broke off: %s", name, exc)
+            used["provider"] = name
+            yield "\n\n_(The answer was cut off. Please ask again.)_"
+            return
+        log.warning("LLM stream from %s failed, falling back: %s", name, exc)
+    text, used["provider"] = chat_with_fallback(messages, provider=provider, **kwargs)
+    yield text
 
 
 def parse_json(text: str) -> dict:

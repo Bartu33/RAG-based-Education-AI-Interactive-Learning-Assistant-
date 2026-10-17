@@ -133,6 +133,68 @@ def evaluate(question: str, answer: str, course: str, lecture: Optional[int] = N
     return _call("POST", "/evaluate", json=body)
 
 
+# --- Interactive Learning (one open document + study-buddy chat) ---
+def study_document(course: str, document: str) -> dict:
+    return _call("GET", "/study/document", params={"course": course, "document": document})
+
+
+def study_page_image(course: str, document: str, page: int, zoom: float = 1.5) -> bytes:
+    """PNG of one PDF page."""
+    params = {"course": course, "document": document, "page": page, "zoom": zoom}
+    try:
+        r = _http().get("/study/page", params=params)
+    except httpx.HTTPError:
+        raise ApiError(f"Cannot reach the backend at {BASE_URL}.")
+    if r.status_code >= 400:
+        try:
+            detail = r.json().get("detail")
+        except ValueError:
+            detail = r.text
+        raise ApiError(str(detail or r.reason_phrase), r.status_code)
+    return r.content
+
+
+def study_file_url(course: str, document: str) -> str:
+    """Address the browser itself loads (video player), so it must be reachable from the browser."""
+    from urllib.parse import urlencode
+    return f"{BASE_URL}/study/file?{urlencode({'course': course, 'document': document})}"
+
+
+def study_chat(body: dict) -> dict:
+    """One full reply: {answer, sources, mode, language, retrieval_ms, total_s, provider}."""
+    return _call("POST", "/study/chat", json={**body, "stream": False})
+
+
+def study_chat_stream(body: dict, meta: dict):
+    """Generator of answer pieces as the model writes them (for st.write_stream). `meta` is filled
+    with the first line of the reply (sources, retrieval_ms) before the first piece is yielded."""
+    try:
+        with _http().stream("POST", "/study/chat", json={**body, "stream": True}) as r:
+            if r.status_code >= 400:
+                r.read()
+                try:
+                    detail = r.json().get("detail")
+                except ValueError:
+                    detail = r.text
+                raise ApiError(str(detail or r.reason_phrase), r.status_code)
+            import json
+            header, got_header = "", False
+            for piece in r.iter_text():
+                if not got_header:
+                    header += piece
+                    if "\n" not in header:
+                        continue
+                    line, piece = header.split("\n", 1)
+                    meta.update(json.loads(line))
+                    got_header = True
+                if piece:
+                    yield piece
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        raise ApiError(f"Cannot reach the backend at {BASE_URL}. Start it with: uvicorn backend.main:app")
+    except httpx.TimeoutException:
+        raise ApiError("The backend did not answer in time.")
+
+
 def benchmark(sizes: Optional[list[int]] = None, provider: Optional[str] = None) -> list[dict]:
     return _call("POST", "/benchmark", json={"sizes": sizes, "provider": provider},
                  timeout=LONG)["rows"]

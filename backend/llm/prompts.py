@@ -87,3 +87,51 @@ def build_faithfulness_messages(answer: str, contexts: list[str]) -> list[dict]:
 def build_hallucination_messages(answer: str, contexts: list[str]) -> list[dict]:
     return [{"role": "system", "content": HALLUCINATION_TYPE_SYSTEM},
             {"role": "user", "content": "CONTEXT:\n" + "\n---\n".join(contexts) + f"\n\nANSWER:\n{answer}"}]
+
+# --- Interactive Learning (study buddy next to an open document) ---
+LANGUAGES = {"tr": "Turkish", "en": "English"}
+
+STUDY_SYSTEM = (
+    "You are a friendly study buddy. The student is reading the document \"{document}\" right now "
+    "and asks you for help with it. Use ONLY the numbered excerpts of this document; do not answer "
+    "from general knowledge. If the excerpts do not cover the request, say so in one short sentence "
+    "and suggest what in the document the student could look at instead. Cite the excerpts you use "
+    "with bracket numbers such as [1]. Keep answers short, clear and encouraging; use Markdown "
+    "(short paragraphs, bullet points, **bold** key terms). Earlier messages of the conversation are "
+    "context only. Write your whole answer in {language}, even if the document or the question is "
+    "in another language; keep technical terms in their original form when that is clearer."
+)
+
+STUDY_TASKS = {
+    "ask": "STUDENT QUESTION:\n{question}",
+    "summary": (
+        "Summarize this document for the student: first a 2-3 sentence overview, then the main "
+        "topics as short bullet points (with the key definitions), and finally 3 key takeaways."
+    ),
+    "explain": (
+        "The student is now at {location}. Explain what this part says in simple terms, as a tutor "
+        "would: the main idea, why it matters, and a small example or analogy. End with one short "
+        "question the student can ask themselves to check their understanding."
+    ),
+    "concepts": (
+        "List the key concepts and terms of this document. For each one give a one-sentence, "
+        "beginner-friendly explanation. Order them as they appear in the document."
+    ),
+}
+
+
+def build_study_messages(document: str, mode: str, chunks: list[dict], language: str = "en",
+                         question: str = "", location: str = "",
+                         history: list[dict] | None = None) -> list[dict]:
+    """history: earlier turns [{"role": "user" | "assistant", "content": "..."}], oldest first."""
+    if mode not in STUDY_TASKS:
+        raise ValueError(f"Unknown study mode: {mode}")
+    system = STUDY_SYSTEM.format(document=document, language=LANGUAGES.get(language, "English"))
+    task = STUDY_TASKS[mode].format(question=question, location=location or "this part")
+    messages = [{"role": "system", "content": system}]
+    for turn in history or []:
+        if turn.get("role") in ("user", "assistant") and turn.get("content"):
+            messages.append({"role": turn["role"], "content": str(turn["content"])})
+    messages.append({"role": "user",
+                     "content": f"DOCUMENT EXCERPTS:\n{format_context(chunks)}\n\n{task}"})
+    return messages

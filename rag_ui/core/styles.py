@@ -100,6 +100,37 @@ button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hov
   background:var(--teal); color:#04211d; font-size:.85rem; }
 .step .t{ font-weight:700; margin-bottom:.15rem; }
 .step .d{ color:var(--muted); font-size:.86rem; }
+/* ---------- Interactive Learning ---------- */
+.st-key-buddy_fab, .st-key-buddy_fab_open{
+  position:fixed !important; right:.8rem; bottom:1.2rem; z-index:1000; width:auto !important;  /* sits in the page's right margin, clear of the chat input */
+}
+/* the bot picture itself is set as background-image by views/interactive.py */
+.st-key-buddy_fab button, .st-key-buddy_fab_open button{
+  width:68px; height:68px; min-height:0; border-radius:50% !important; padding:0 !important;
+  border:0 !important; background-color:transparent !important;
+  background-size:cover !important; background-position:center !important; background-repeat:no-repeat !important;
+  box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 0 0 rgba(59,130,246,.55);
+  animation:buddy-pulse 2.6s infinite; transition:transform .18s !important;
+}
+.st-key-buddy_fab button p, .st-key-buddy_fab_open button p{ opacity:0; font-size:1px !important; }
+.st-key-buddy_fab button:hover, .st-key-buddy_fab_open button:hover{ transform:translateY(-3px) scale(1.05) !important; }
+.st-key-buddy_fab_open button{ animation:none;
+  box-shadow:0 0 0 4px rgba(59,130,246,.35), 0 10px 28px rgba(0,0,0,.45); }
+@keyframes buddy-pulse{
+  0%{ box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 0 0 rgba(59,130,246,.55); }
+  70%{ box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 0 16px rgba(59,130,246,0); }
+  100%{ box-shadow:0 10px 28px rgba(0,0,0,.45), 0 0 0 0 rgba(59,130,246,0); }
+}
+.buddy-title img{ width:30px; height:30px; vertical-align:middle; margin-right:.35rem; margin-top:-3px; }
+.st-key-buddy_panel{ background:var(--panel); position:sticky; top:3.5rem; }
+.st-key-buddy_panel [data-testid="stChatMessage"]{ padding:.7rem .9rem; border-radius:14px; }
+.buddy-title{ font-weight:800; font-size:1.15rem; }
+.buddy-sub{ color:var(--muted); font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.buddy-empty{ color:var(--muted); font-size:.92rem; padding:1rem; border:1px dashed var(--line); border-radius:14px; }
+.doc-page{ white-space:pre-wrap; line-height:1.65; font-size:.95rem; color:#d5dee8;
+  background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:1.4rem 1.6rem; }
+.doc-page-title{ font-weight:700; color:var(--teal); margin-bottom:.8rem; font-size:.85rem;
+  letter-spacing:.08em; text-transform:uppercase; white-space:normal; }
 .privacy{ display:flex; gap:.8rem; align-items:center; margin-top:1.4rem; padding:.9rem 1.2rem; border-radius:14px;
   background:rgba(45,212,191,.06); border:1px solid rgba(45,212,191,.2); color:#b6c2d1; font-size:.9rem; }
 </style>

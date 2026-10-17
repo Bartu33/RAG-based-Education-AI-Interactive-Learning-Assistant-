@@ -227,6 +227,42 @@ Tests newest first, each with its questions and the latest attempt per question 
 ```
 `DELETE` → `{"deleted_tests": 3}`. Everything lives in SQLite at `database.path` (`data/app.db`, git-ignored).
 
+### Interactive Learning (one open document + study-buddy chat)
+The chat only searches the chunks of the open document: they are read once and kept in memory
+until the next write to the store, so a question costs one local embedding + a dot product over
+those chunks. Reranker and faithfulness check are off by default (`study:` in `config.yaml`).
+
+`GET /study/document?course=CENG336&document=Chapter_1.pdf` → what the viewer shows. 404 if not indexed.
+```json
+{"document": "Chapter_1.pdf", "course": "CENG336", "lecture": 1, "type": "pdf", "chunks": 93,
+ "pages": 92, "has_file": true,
+ "units": [{"label": "Page 1", "page": 1, "section": null, "start_ms": null, "end_ms": null, "text": "..."}]}
+```
+Units are pages (pdf), slides (pptx), sections (docx) or transcript parts (video), in reading order.
+
+`GET /study/page?course=..&document=..&page=3&zoom=1.6` → `image/png` of one PDF page (PyMuPDF).
+`GET /study/file?course=..&document=..` → the original upload, inline (video player, "open original").
+Both return 404 when the original file is not in `data/uploads/<course>/`, 400 for invalid names.
+
+`POST /study/chat`
+```json
+{"course": "CENG336", "document": "Chapter_1.pdf", "mode": "ask", "question": "What is a protocol?",
+ "language": "tr", "page": 3, "time_ms": null, "section": null,
+ "history": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}],
+ "provider": null, "stream": true}
+```
+`mode`: `ask` (needs `question`) · `summary` · `explain` (uses `page` / `time_ms` / `section`)
+· `concepts`. `language`: `en` | `tr` (language of the answer). `page`/`time_ms`/`section` = where the
+student is; in `ask` mode chunks there get a small bonus (`study.page_boost`).
+
+- `stream: false` → `{"answer", "sources", "mode", "language", "retrieval_ms", "total_s", "provider"}`
+- `stream: true` → `text/plain`: the first line is JSON `{"sources", "mode", "language", "retrieval_ms"}`,
+  everything after it is the answer as it is generated.
+
+`sources`: `[{"n": 1, "label": "Page 3", "page": 3, "section": null, "start_ms": null, "end_ms": null,
+"score": 0.61, "text": "first 300 characters"}]` (`n` matches the `[1]` citations). Errors before the
+answer starts: 404 unknown document, 400 empty question / unknown mode / nothing indexed at that page.
+
 ## Not exposed yet (backend functions exist)
 
 | Function | Suggested endpoint | UI use |
