@@ -302,3 +302,60 @@ answer starts: 404 unknown document, 400 empty question / unknown mode / nothing
 |---|---|---|
 | `index_file(..., on_progress=fn)` | background `/ingest` + `GET /jobs/{id}` | per-stage progress bar (the UI now shows per-file progress) |
 | `retrieve(...)` → `timings`, `mode`, per-chunk `similarity`, `rerank`, `duplicates` | `POST /retrieve` (debug) | "context sent externally" panel |
+
+### `POST /board` (teaching board for a Q&A answer)
+```json
+{"question": "...", "answer": "<the /ask answer>", "course": "CENG336", "lecture": 1,
+ "sources": [<the /ask sources, unchanged>], "provider": null}
+```
+```json
+{"view": "whiteboard",
+ "is_math": true,
+ "video": {"document": "Lecture01.mp4", "start_ms": 740000, "end_ms": 797000},
+ "page": {"document": "Chapter_1.pdf", "type": "pdf", "page": 39, "reason": "video-match",
+          "similarity": 0.62, "highlights": ["Packet switching versus circuit switching"], "renderable": true},
+ "pages": [<page above>, {"document": "Chapter_1.pdf", "type": "pdf", "page": 40, "reason": "source", ...}],
+ "whiteboard": {"title": "...", "given": ["$L = 1000$ bit"], "find": "$d$",
+                "steps": [{"write": "$d = L/R$", "say": "First, the formula."}],
+                "result": "$d = 10$ s", "check": "bits / (bits/s) = s", "closing": "...", "provider": "groq"},
+ "lesson": {"beats": [{"line": "<exact line of the page or null>", "page": 0, "say": "Look at this line...",
+                       "point": "<key idea, at most 8 words>"}],
+            "closing": "...", "summary": ["...", "..."], "narrated": true},
+ "language": "tr",
+ "notes": []}
+```
+- `view`: `whiteboard` (only calculation / derivation / proof questions: each step = what is written on the board +
+  what the lecturer says) | `page` (the lecturer walks through the page: `lesson.beats`, each pointing at one line,
+  which the UI highlights while it is explained) | `none`. `lesson.narrated=false` = plain walk-through (LLM unavailable).
+- `pages`: the pages / slides the lesson walks through (`page` = `pages[0]`, at most `board.max_pages`); `beats[].page`
+  is an index into it. Everything written on the whiteboard (`given`, `find`, `steps[].write`, `result`) has its
+  formulas inside `$...$` (bare LaTeX from the model is wrapped by the backend).
+- `video`: the best video source; the UI plays `/study/file` from `start_ms` to `end_ms` in the corner. `null` when the
+  answer has no video source or the file is not on the server.
+- `page.reason`: `video-match` = the slide / page closest in meaning to what is said in the video; `source` = the
+  answer's own best PDF / slide source. `renderable=false` means it is shown as text only (see `notes`, e.g. LibreOffice missing).
+- One LLM call (the whiteboard or the lesson); everything else is local. Config: `board:` in `config.yaml`.
+
+### `GET /board/page?course=&document=&page=&hl=...&hl=...`
+PNG of a PDF page or slide with each `hl` line highlighted. `.pptx` is converted to PDF once with LibreOffice
+(cached in `data/uploads/<course>/.rendered/`). 404 when the file is not on the server.
+
+### `POST /lecture-video` (record the teaching board as an MP4)
+```json
+{"question": "...", "course": "CENG336", "board": <the /board reply, unchanged>}
+```
+Returns at once; the video is built in the background (one at a time) and cached in `data/generated/<course>/`:
+```json
+{"id": "3f9c0a1b2c3d4e5f", "state": "queued", "stage": "queued", "progress": 0.0, "error": null,
+ "seconds": null, "scenes": null, "voice": null, "pip": null, "notes": []}
+```
+`state`: `queued` → `running` (`stage`: frames → voice → video) → `done` | `error`. 400 when the board has no
+explanation (`view` = none). The same question + board returns the same `id` (cache), also after a restart.
+
+### `GET /lecture-video/{id}` → the status above (404 unknown id) · `GET /lecture-video/{id}/file` → `video/mp4`
+Done: `seconds` (length), `scenes`, `voice` (Piper voice name, `null` = no voice → subtitles only, see `notes`),
+`pip` (the lecture recording plays in the corner, after the title card). Video: 1920x1080 H.264 + AAC (title card,
+one scene per beat / step with subtitle-sized pieces, key-points or given/find panel). A video made without a voice is
+not cached as final: the next `POST` with the same board builds it again. Config: `video:` in `config.yaml`; voices:
+`python scripts/download_voices.py`.
+

@@ -74,6 +74,41 @@ study:                        # Interactive Learning page: chat limited to the o
   max_tokens_long: 1600       # summary / key concepts / explain
   general_knowledge: true     # the buddy may add a separate "beyond the document" part
 
+board:                        # Q&A teaching board: corner video + highlighted page / whiteboard
+  enabled: true
+  math_mode: auto             # auto | always | never: whiteboard only for calculation / derivation / proof questions
+  narrate: true               # lecturer-style explanation (one LLM call): talks step by step, pointing at page lines
+  max_beats: 7                # at most this many explanation steps
+  max_pages: 3                # a lesson can walk through this many cited pages / slides
+  match_min_similarity: 0.45  # video moment -> slide / PDF page match must be at least this similar
+  highlight_lines: 3          # at most this many lines highlighted on the page
+  highlight_min_similarity: 0.30
+  highlight_margin: 0.08
+  max_steps: 10               # whiteboard: at most this many solution lines
+  max_tokens: 2200
+  libreoffice_path: null      # needed to show .pptx slides as images; null = auto-detect soffice
+  zoom: 1.6
+
+video:                        # explanation video generated from the teaching board (Piper voice + ffmpeg)
+  enabled: true
+  voices:                     # Piper voices, downloaded once (~60 MB each) into voices_dir
+    tr: tr_TR-dfki-medium      # the only Turkish voice in rhasspy/piper-voices
+    en: en_US-lessac-medium
+  voices_dir: data/models/piper  # or run: python scripts/download_voices.py
+  voice_speed: 0.92           # 1.0 = Piper default; a bit slower is clearer for a lecture
+  voice_base_url: null        # another mirror of rhasspy/piper-voices if huggingface.co is blocked
+  pip: true                   # matching part of the original lecture recording in the corner
+  pip_width: 384              # in 1280-wide units (scaled with the video)
+  width: 1920                 # 1920x1080 (Full HD); 1280x720 is faster to build
+  height: 1080
+  fps: 12
+  intro: true                 # title card with the question
+  pause_s: 0.45               # breath after each scene
+  chunk_pause_s: 0.2          # between the subtitle pieces of one long sentence
+  subtitle_chars: 90          # long sentences are cut into pieces this long (two subtitle lines)
+  max_scenes: 14
+  output_dir: data/generated  # cached videos (git-ignored)
+
 grounding:
   grounded_threshold: 0.85
   partial_threshold: 0.50

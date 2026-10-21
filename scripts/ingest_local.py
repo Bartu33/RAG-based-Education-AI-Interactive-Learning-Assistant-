@@ -8,11 +8,13 @@ Stop uvicorn first: ChromaDB must not be opened by two processes at the same tim
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from backend.config import resolve_path  # noqa: E402
 from backend.ingestion import EXTENSIONS  # noqa: E402
 
 
@@ -53,7 +55,12 @@ def main():
         def progress(stage: str, frac: float) -> None:
             print(f"\r  {stage:<8} {frac:5.0%}", end="", flush=True)
 
-        rec = index_file(f, a.course, a.lecture, on_progress=progress)
+        # keep a copy where the API serves originals from (video player, page images, slides)
+        dest = resolve_path("data/uploads") / a.course / f.name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if f.resolve() != dest.resolve():
+            shutil.copy2(f, dest)
+        rec = index_file(dest, a.course, a.lecture, on_progress=progress)
         t = rec["timings_ms"]
         print(f"\r  OK  {rec['chunks']} chunks  ({rec['type']})  "
               f"extract {t['extract']} ms · chunk {t['chunk']} ms · embed {t['embed']} ms · store {t['store']} ms"

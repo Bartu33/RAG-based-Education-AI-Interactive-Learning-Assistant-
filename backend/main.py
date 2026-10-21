@@ -243,6 +243,76 @@ def ask(req: AskRequest):
     return result
 
 
+# --- Teaching board: corner video + highlighted page / whiteboard next to a Q&A answer ---
+class BoardRequest(BaseModel):
+    question: str
+    answer: str = ""
+    course: str
+    lecture: Optional[int] = None
+    sources: list[dict] = []
+    provider: Optional[str] = None
+
+
+@app.post("/board")
+def board(req: BoardRequest):
+    from backend.tasks.board import build_board
+    try:
+        return build_board(req.question, req.answer, req.course, req.lecture, req.sources,
+                           req.provider)
+    except Exception as exc:  # noqa: BLE001
+        raise _http(exc)
+
+
+@app.get("/board/page")
+def board_page(course: str, document: str, page: int = Query(1, ge=1),
+               hl: list[str] = Query(default=[]), zoom: Optional[float] = Query(None, ge=0.5, le=3.0)):
+    """A PDF page or slide as PNG with the `hl` lines highlighted."""
+    from fastapi.responses import Response
+    from backend.tasks.board import render_page as render_board_page
+    try:
+        png = render_board_page(course, document, page, hl, zoom)
+    except Exception as exc:  # noqa: BLE001
+        raise _study_error(exc)
+    return Response(png, media_type="image/png", headers={"Cache-Control": "max-age=3600"})
+
+
+# --- Explanation video: the teaching board recorded as an MP4 (voice + slides / whiteboard) ---
+class LectureVideoRequest(BaseModel):
+    question: str
+    course: str
+    board: dict
+
+
+@app.post("/lecture-video")
+def lecture_video_start(req: LectureVideoRequest):
+    """Starts building the video in the background (or returns the cached one). Poll the status."""
+    from backend.tasks import lecture_video
+    try:
+        return lecture_video.start(req.question, req.course, req.board)
+    except Exception as exc:  # noqa: BLE001
+        raise _http(exc)
+
+
+@app.get("/lecture-video/{job_id}")
+def lecture_video_status(job_id: str):
+    from backend.tasks import lecture_video
+    try:
+        return lecture_video.status(job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/lecture-video/{job_id}/file")
+def lecture_video_file(job_id: str):
+    from fastapi.responses import FileResponse
+    from backend.tasks import lecture_video
+    try:
+        path = lecture_video.file_for(job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return FileResponse(path, media_type="video/mp4", content_disposition_type="inline")
+
+
 # --- Interactive Learning: one open document + a study-buddy chat limited to it ---
 def _study_error(exc: Exception) -> HTTPException:
     if isinstance(exc, (LookupError, FileNotFoundError)):

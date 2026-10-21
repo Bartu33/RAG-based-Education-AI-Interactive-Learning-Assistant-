@@ -216,6 +216,44 @@ def study_chat_stream(body: dict, meta: dict):
         raise ApiError("The backend did not answer in time.")
 
 
+# --- teaching board (Q&A): corner video + highlighted page / whiteboard ---
+def board(question: str, answer: str, course: str, lecture: Optional[int], sources: list[dict],
+          provider: Optional[str] = None) -> dict:
+    body = {"question": question, "answer": answer, "course": course, "lecture": lecture,
+            "sources": sources, "provider": provider}
+    return _call("POST", "/board", json=body)
+
+
+def board_page_image(course: str, document: str, page: int, highlights: list[str]) -> bytes:
+    """PNG of a PDF page / slide with the given lines highlighted."""
+    params = [("course", course), ("document", document), ("page", page)] + [("hl", h) for h in highlights]
+    try:
+        r = _http().get("/board/page", params=params)
+    except httpx.HTTPError:
+        raise ApiError(f"Cannot reach the backend at {BASE_URL}.")
+    if r.status_code >= 400:
+        try:
+            detail = r.json().get("detail")
+        except ValueError:
+            detail = r.text
+        raise ApiError(str(detail or r.reason_phrase), r.status_code)
+    return r.content
+
+
+# --- explanation video (generated MP4 of the teaching board) ---
+def start_lecture_video(question: str, course: str, board: dict) -> dict:
+    return _call("POST", "/lecture-video", json={"question": question, "course": course, "board": board})
+
+
+def lecture_video_status(job_id: str) -> dict:
+    return _call("GET", f"/lecture-video/{job_id}")
+
+
+def lecture_video_url(job_id: str) -> str:
+    """Address the browser loads the MP4 from."""
+    return f"{BASE_URL}/lecture-video/{job_id}/file"
+
+
 def benchmark(sizes: Optional[list[int]] = None, provider: Optional[str] = None) -> list[dict]:
     return _call("POST", "/benchmark", json={"sizes": sizes, "provider": provider},
                  timeout=LONG)["rows"]

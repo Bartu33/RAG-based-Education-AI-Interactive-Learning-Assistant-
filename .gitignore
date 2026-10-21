@@ -14,3 +14,4 @@ models/
 data/feedback/
 data/app.db
 data/history.db
+data/generated/

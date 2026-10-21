@@ -17,3 +17,7 @@ faster-whisper
 openai
 pytest
 httpx                   # FastAPI TestClient (tests/test_api.py)
+piper-tts               # lecturer voice for explanation videos (local)
+imageio-ffmpeg          # bundled ffmpeg to build the videos
+matplotlib              # formulas on the video whiteboard
+pillow
