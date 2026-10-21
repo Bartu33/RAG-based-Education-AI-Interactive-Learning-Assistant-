@@ -4,6 +4,7 @@ The buddy only searches the chunks of the open document (fast, and the answers s
 """
 import base64
 import html
+import re
 from pathlib import Path
 from time import perf_counter
 from typing import Optional
@@ -12,7 +13,7 @@ import streamlit as st
 
 from core import api_client as api
 from core import styles
-from core.state import cached_documents, mmss, safe
+from core.state import BeyondStream, cached_documents, mmss, safe, split_beyond
 
 styles.kicker("STUDY MODE"); st.title("🧠 Interactive Learning")
 # this page shows a document and a chat side by side, so it may use more of the screen
@@ -57,11 +58,24 @@ if not docs:
     st.page_link("views/materials.py", label="Upload materials →")
     st.stop()
 
+def natural(name: str) -> list:
+    """Sort key: "2- Sampling" before "10- FFT"."""
+    return [int(p) if p.isdigit() else p.lower() for p in re.split(r"(\d+)", name)]
+
+
+# course -> week -> document, like the folders on the Materials page
 by_key = {f"{d['course']}|{d['document']}": d for d in docs}
-key = st.selectbox(
-    "Document", list(by_key), key="iv_doc",
-    format_func=lambda k: f"{ICONS.get(by_key[k]['type'], '📄')} {by_key[k]['document']} · "
-                          f"{by_key[k]['course']} · week {by_key[k]['lecture']}")
+p1, p2, p3 = st.columns([1, 1, 3])
+course = p1.selectbox("Course", sorted({d["course"] for d in docs}, key=natural), key="iv_course")
+weeks = sorted({d["lecture"] for d in docs if d["course"] == course})
+week = p2.selectbox("Week", [None] + weeks, key=f"iv_week_{course}",
+                    format_func=lambda w: "All weeks" if w is None else f"Week {w}")
+keys = sorted((k for k, d in by_key.items() if d["course"] == course and week in (None, d["lecture"])),
+              key=lambda k: (by_key[k]["lecture"], natural(by_key[k]["document"])))
+key = p3.selectbox(
+    "Document", keys, key=f"iv_doc_{course}_{week}",
+    format_func=lambda k: f"{ICONS.get(by_key[k]['type'], '📄')} {by_key[k]['document']}"
+                          + (f" · week {by_key[k]['lecture']}" if week is None and len(weeks) > 1 else ""))
 d = by_key[key]
 info = safe(outline, d["course"], d["document"])
 if info is None:
@@ -235,6 +249,8 @@ if panel is not None:
                     with st.chat_message(m["role"], avatar=BOT_AVATAR if m["role"] == "assistant" else "🧑‍🎓"):
                         st.markdown(m["content"])
                         if m["role"] == "assistant":
+                            if m.get("beyond"):
+                                styles.beyond_box(m["beyond"], f"{key}_{i}", "document")
                             render_sources(m, i)
                             if m.get("timing"):
                                 st.caption(m["timing"])
@@ -256,15 +272,18 @@ if panel is not None:
                     with st.chat_message("assistant", avatar=BOT_AVATAR):
                         t0 = perf_counter()
                         try:
-                            answer = st.write_stream(api.study_chat_stream(body, meta))
+                            stream = BeyondStream(api.study_chat_stream(body, meta))
+                            st.write_stream(stream)
+                            answer = stream.raw
                         except api.ApiError as exc:
                             st.error(f"Backend error: {exc}")
                             answer = None
                 if answer:
                     total = perf_counter() - t0
                     chat.append({"role": "user", "content": shown})
-                    chat.append({"role": "assistant", "content": answer if isinstance(answer, str)
-                                 else "".join(map(str, answer)),
+                    main, beyond = split_beyond(answer)
+                    # only the document-based part goes back to the model as conversation history
+                    chat.append({"role": "assistant", "content": main or answer, "beyond": beyond,
                                  "sources": meta.get("sources", []),
                                  "timing": f"⚡ search {meta.get('retrieval_ms', '–')} ms · "
                                            f"total {total:.1f} s"})

@@ -157,6 +157,69 @@ def test_question_gen_without_material_is_a_400(monkeypatch):
         qg.generate_questions("X", None, ["Short Answer"], 1, "Easy", store=Empty())
 
 
+def _one_chunk_store():
+    class Store:
+        def get(self, where=None, limit=None):
+            return [{"text": f"part {i}", "metadata": {"source_type": "pdf", "document": "k.pdf", "page": i}}
+                    for i in range(1, 30)]
+    return Store()
+
+
+def test_counts_make_a_grouped_plan_and_validate_limits():
+    from backend.tasks import question_gen as qg
+    plan = qg.make_plan({"True/False": 1, "Multiple Choice": 3, "Short Answer": 0})
+    assert plan == [("mcq", "Multiple Choice")] * 3 + [("tf", "True/False")]
+    assert len(qg.make_plan(types=["Multiple Choice", "Short Answer"], n=3)) == 3   # older form
+    for bad in ({"Multiple Choice": 0}, {"Multiple Choice": 11}, {"Multiple Choice": 10, "Short Answer": 10,
+                                                                    "True/False": 1}):
+        with pytest.raises(ValueError):
+            qg.make_plan(bad)
+
+
+def test_items_are_checked_by_their_own_format_and_capped(monkeypatch):
+    from backend.tasks import question_gen as qg
+    mcq = lambda i: {"format": "mcq", "question": f"M{i}?", "options": ["a", "b", "c", "d"],  # noqa: E731
+                     "correct_answer": "a", "source_index": 2}
+    reply = json.dumps({"questions": [
+        {"format": "tf", "question": "T1?", "options": None, "correct_answer": "False"},   # reordered: kept
+        mcq(1), mcq(2),
+        {"format": "short", "question": "S1?", "correct_answer": "x"},                     # not requested
+        mcq(3), mcq(4)]})                                                                   # one MCQ too many
+    seen = {}
+
+    def chat(messages, **kw):
+        seen["prompt"], seen["max_tokens"] = messages[1]["content"], kw["max_tokens"]
+        return reply, "groq"
+    monkeypatch.setattr(qg, "chat_with_fallback", chat)
+    out = qg.generate_questions("C", None, counts={"Multiple Choice": 3, "True/False": 1},
+                                difficulty="Hard", store=_one_chunk_store())
+    assert [q["question"] for q in out] == ["M1?", "M2?", "M3?", "T1?"]               # grouped, capped
+    assert out[-1]["type"] == "True/False" and out[-1]["options"] is None
+    assert out[0]["source"].startswith("k.pdf, p. ") and seen["max_tokens"] == 500 + 250 * 4  # random sample
+    assert "Write exactly 4 questions" in seen["prompt"] and "Focus topic" not in seen["prompt"]
+
+
+def test_topic_uses_the_search_instead_of_a_random_sample(monkeypatch):
+    from backend.tasks import question_gen as qg
+    import backend.retrieval.retriever as retriever
+    hit = {"text": "sampling", "metadata": {"source_type": "pdf", "document": "s.pdf", "page": 7}}
+    asked = {}
+
+    def fake_retrieve(q, course, lecture=None, **kw):
+        asked.update(q=q, k=kw["top_context"])
+        return {"chunks": [hit] if q == "sampling" else []}
+    monkeypatch.setattr(retriever, "retrieve", fake_retrieve)
+    reply = json.dumps({"questions": [{"format": "short", "question": "Why sample?", "correct_answer": "x",
+                                       "source_index": 1}]})
+    prompts = []
+    monkeypatch.setattr(qg, "chat_with_fallback", lambda m, **k: prompts.append(m[1]["content"]) or (reply, "groq"))
+    out = qg.generate_questions("C", 1, counts={"Short Answer": 1}, topic=" sampling ", store=object())
+    assert asked == {"q": "sampling", "k": 8} and out[0]["source"] == "s.pdf, p. 7"
+    assert "Focus topic: sampling" in prompts[0]
+    with pytest.raises(ValueError, match="Nothing about"):
+        qg.generate_questions("C", 1, counts={"Short Answer": 1}, topic="quantum", store=object())
+
+
 # --------------------------------------------------------------------------- tasks/evaluator
 def test_concept_coverage_is_fuzzy_and_deterministic():
     from backend.tasks.evaluator import concept_coverage

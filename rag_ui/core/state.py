@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 
 import streamlit as st
@@ -172,6 +173,41 @@ def record_attempt(q: dict, student_answer: str, is_correct=None, result: Option
         if exc.status == 401:
             log_out("Your session expired, please log in again.")
         st.error(f"Could not save to My Results: {exc}")
+
+
+# same rule as backend/llm/prompts.py (the UI does not import backend code): a streamed answer is
+# split here, a non-streamed one arrives already split in "beyond"
+BEYOND_MARKER = "[BEYOND]"
+_BEYOND_RE = re.compile(r"\**\s*\[BEYOND\]\s*\**\s*:?", re.IGNORECASE)
+
+
+def split_beyond(text: str) -> tuple[str, Optional[str]]:
+    m = _BEYOND_RE.search(text)
+    if not m:
+        return text.strip(), None
+    return text[:m.start()].strip(), _BEYOND_RE.sub("", text[m.end():]).strip() or None
+
+
+class BeyondStream:
+    """Wraps a streamed answer for st.write_stream: while writing, the [BEYOND] marker is shown as
+    a separator line; the raw text is kept in .raw so it can be split afterwards."""
+    SEPARATOR = "\n\n---\n💡 **Beyond the course material** (general knowledge)\n\n"
+
+    def __init__(self, pieces):
+        self.pieces, self.raw = pieces, ""
+
+    def __iter__(self):
+        buf = ""
+        for piece in self.pieces:
+            self.raw += piece
+            buf = _BEYOND_RE.sub(self.SEPARATOR, buf + piece)
+            hold = next((n for n in range(len(BEYOND_MARKER) - 1, 0, -1)
+                         if buf.upper().endswith(BEYOND_MARKER[:n])), 0)  # marker may be split
+            if len(buf) > hold:
+                yield buf[:len(buf) - hold]
+                buf = buf[len(buf) - hold:]
+        if buf:
+            yield buf
 
 
 def is_choice(q: dict) -> bool:

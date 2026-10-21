@@ -22,6 +22,8 @@ def render(m):
         cols[1].caption("Nothing to verify")
     cols[2].caption(f"Retrieval: {m['retrieval_ms']} ms · Total: {m['total_s']} s")
     cols[3].caption(f"Sent to API: ~{m['tokens_sent']} tokens")
+    if m.get("beyond"):  # after the label: the grounding score covers only the part above
+        styles.beyond_box(m["beyond"], m["mid"])
     title = f"📎 Sources ({len(m['sources'])})" if found else f"🔎 Closest passages checked ({len(m['sources'])})"
     if m["sources"]:
         with st.expander(title):

@@ -119,11 +119,32 @@ def ask(question: str, course: str, lecture: Optional[int] = None,
     return _call("POST", "/ask", json=body)
 
 
-def generate_questions(course: str, lecture: Optional[int], types: list[str], n: int,
-                       difficulty: str, provider: Optional[str] = None) -> list[dict]:
-    body = {"course": course, "lecture": lecture, "types": types, "n": n,
-            "difficulty": difficulty, "provider": provider}
+def generate_questions(course: str, lecture: Optional[int], counts: dict[str, int],
+                       difficulty: str, provider: Optional[str] = None,
+                       topic: Optional[str] = None, exam_ids: Optional[list[str]] = None) -> list[dict]:
+    """counts: questions per type, e.g. {"Multiple Choice": 5, "True/False": 1}.
+    exam_ids: past exams whose question style to imitate."""
+    body = {"course": course, "lecture": lecture, "counts": counts, "topic": topic,
+            "difficulty": difficulty, "provider": provider, "exam_ids": exam_ids or None}
     return _call("POST", "/generate", json=body)["questions"]
+
+
+# --- past exams (instructor's question style) ---
+def exams(course: str) -> list[dict]:
+    return _call("GET", "/exams", params={"course": course})["exams"]
+
+
+def add_exam(course: str, name: str = "", text: str = "", file: Optional[tuple] = None,
+             provider: Optional[str] = None) -> dict:
+    """file: (filename, bytes, mime). Either a file or pasted text."""
+    data = {"course": course, "name": name, "text": text}
+    if provider:
+        data["provider"] = provider
+    return _call("POST", "/exams", data=data, files=[("file", file)] if file else None)
+
+
+def delete_exam(exam_id: str) -> dict:
+    return _call("DELETE", f"/exams/{exam_id}")
 
 
 def evaluate(question: str, answer: str, course: str, lecture: Optional[int] = None,

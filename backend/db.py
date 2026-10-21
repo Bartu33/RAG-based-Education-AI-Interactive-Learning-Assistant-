@@ -1,4 +1,4 @@
-"""SQLite store for application records: student accounts, login sessions, practice tests and answers.
+"""SQLite store for application records: student accounts, login sessions, practice tests and answers, past exams.
 
 Python standard library, one file at `database.path` (git-ignored: it holds password hashes and
 student answers). ChromaDB stays for what it is built for, vector search over course material.
@@ -39,6 +39,14 @@ CREATE TABLE IF NOT EXISTS attempts (
     score          INTEGER,               -- open questions: rubric total 0-100
     feedback       TEXT,                  -- JSON list of feedback sentences
     dims           TEXT                   -- JSON list of rubric dimensions
+);
+CREATE TABLE IF NOT EXISTS exams (     -- past exams: style examples, not course material
+    id      TEXT PRIMARY KEY,
+    course  TEXT NOT NULL,
+    name    TEXT NOT NULL,
+    created TEXT NOT NULL,
+    text    TEXT NOT NULL,                -- extracted / pasted exam text
+    style   TEXT NOT NULL                 -- JSON: summary, style_points, topics, mix, questions
 );
 CREATE INDEX IF NOT EXISTS tests_student ON tests (student_no, created);
 CREATE INDEX IF NOT EXISTS attempts_test ON attempts (test_id, question_id);

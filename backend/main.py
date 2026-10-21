@@ -56,7 +56,10 @@ class AskRequest(BaseModel):
 class GenerateRequest(BaseModel):
     course: str
     lecture: Optional[int] = None
-    types: list[str]
+    counts: Optional[dict[str, int]] = None   # {"Multiple Choice": 5, "True/False": 1, ...}
+    topic: Optional[str] = None               # focus the test on this topic (optional)
+    exam_ids: Optional[list[str]] = None      # past exams whose style to imitate (optional)
+    types: list[str] = []                     # older form: types + n, cycled
     n: int = 5
     difficulty: str = "Medium"
     provider: Optional[str] = None
@@ -311,9 +314,48 @@ def generate(req: GenerateRequest):
     from backend.tasks.question_gen import generate_questions
     try:
         return {"questions": generate_questions(req.course, req.lecture, req.types, req.n,
-                                                req.difficulty, req.provider)}
+                                                req.difficulty, req.provider,
+                                                counts=req.counts, topic=req.topic,
+                                                exam_ids=req.exam_ids)}
     except Exception as exc:  # noqa: BLE001
         raise _http(exc)
+
+
+# --- past exams: the instructor's question style, used by /generate ---
+@app.get("/exams")
+def exams(course: str):
+    from backend.tasks.exam_style import list_exams
+    return {"exams": list_exams(course)}
+
+
+@app.post("/exams")
+def add_exam(course: str = Form(...), name: str = Form(""), text: str = Form(""),
+             provider: Optional[str] = Form(None), file: Optional[UploadFile] = File(None)):
+    """A past exam as a file (pdf / docx / pptx) or as pasted text; analysed once by the LLM."""
+    import tempfile
+    from backend.tasks.exam_style import TEXT_TYPES, extract_text, save_exam
+    try:
+        if file is not None and file.filename:
+            fname = Path(file.filename).name
+            if Path(fname).suffix.lower() not in TEXT_TYPES:
+                raise ValueError("Past exams can be PDF, DOCX or PPTX files")
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / fname
+                with open(dest, "wb") as out:
+                    shutil.copyfileobj(file.file, out)
+                text = extract_text(dest)
+            name = name or Path(fname).stem
+        return save_exam(course, name, text, provider)
+    except Exception as exc:  # noqa: BLE001
+        raise _http(exc)
+
+
+@app.delete("/exams/{exam_id}")
+def remove_exam(exam_id: str):
+    from backend.tasks.exam_style import delete_exam
+    if not delete_exam(exam_id):
+        raise HTTPException(status_code=404, detail="No such exam")
+    return {"deleted": True}
 
 
 @app.post("/evaluate")

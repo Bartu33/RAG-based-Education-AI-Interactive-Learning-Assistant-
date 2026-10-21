@@ -11,7 +11,8 @@ from typing import Optional
 
 from backend.db import LOCK, connect
 
-_QUESTION_KEYS = ("id", "type", "difficulty", "question", "options", "correct_answer", "explanation", "source")
+_QUESTION_KEYS = ("id", "type", "difficulty", "question", "options", "correct_answer", "explanation", "source",
+                  "style_ref")
 
 
 def _now() -> str:

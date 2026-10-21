@@ -17,7 +17,7 @@ import numpy as np
 
 from backend.config import get_config, resolve_path
 from backend.indexing.vectorstore import VectorStore, and_filter, get_store
-from backend.llm.prompts import build_study_messages
+from backend.llm.prompts import build_study_messages, split_beyond
 from backend.llm.providers import chat_with_fallback, resolve_provider_name, stream_with_fallback
 from backend.schemas import format_ms
 
@@ -33,6 +33,7 @@ DEFAULTS = {
     "history_turns": 3,          # earlier question/answer pairs sent for follow-up questions
     "max_tokens": 900,
     "max_tokens_long": 1600,     # summary / key concepts / explain
+    "general_knowledge": True,   # allow a [BEYOND] part (reasoning / general knowledge), shown apart
 }
 _CACHE: dict = {}
 
@@ -274,7 +275,8 @@ def prepare(course: str, document: str, mode: str, question: str = "", language:
     language = language if language in ("tr", "en") else "en"
     sel = select_chunks(course, document, mode, question, page, time_ms, section, store)
     messages = build_study_messages(document, mode, sel["chunks"], language, question,
-                                    sel["location"], _history(history, int(cfg["history_turns"])))
+                                    sel["location"], _history(history, int(cfg["history_turns"])),
+                                    beyond=bool(cfg["general_knowledge"]))
     long = mode in ("summary", "concepts", "explain")
     return {"messages": messages, "sources": _sources(sel["chunks"]), "mode": mode,
             "language": language, "retrieval_ms": sel["retrieval_ms"],
@@ -287,7 +289,8 @@ def study_answer(provider: Optional[str] = None, **kwargs) -> dict:
     prep = prepare(**kwargs)
     answer, used = chat_with_fallback(prep["messages"], provider=resolve_provider_name(provider),
                                       max_tokens=prep["max_tokens"])
-    return {"answer": answer, "sources": prep["sources"], "mode": prep["mode"],
+    answer, beyond = split_beyond(answer)
+    return {"answer": answer, "beyond": beyond, "sources": prep["sources"], "mode": prep["mode"],
             "language": prep["language"], "retrieval_ms": prep["retrieval_ms"],
             "total_s": round(perf_counter() - t0, 2), "provider": used}
 

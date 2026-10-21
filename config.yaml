@@ -58,6 +58,8 @@ retrieval:
 
 qa:
   score_faithfulness: true    # one extra LLM call per answer
+  general_knowledge: true     # answers may add a separate "beyond the material" part (general
+                              # knowledge / reasoning); it is shown apart and never scored as grounded
 
 study:                        # Interactive Learning page: chat limited to the one open document
   top_context: 4              # excerpts sent with a question
@@ -70,6 +72,7 @@ study:                        # Interactive Learning page: chat limited to the o
   history_turns: 3            # earlier Q/A pairs sent so follow-up questions work
   max_tokens: 900
   max_tokens_long: 1600       # summary / key concepts / explain
+  general_knowledge: true     # the buddy may add a separate "beyond the document" part
 
 grounding:
   grounded_threshold: 0.85

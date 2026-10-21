@@ -105,6 +105,7 @@ progress, see `index_file(on_progress=...)`).
 ```json
 {"answer": "...[1][2]",
  "found": true,
+ "beyond": "General background that is not in the material ... (or null)",
  "faithfulness": 0.92,
  "sources": [
    {"type": "pdf", "document": "Chapter_1.pdf", "page": 39, "start_ms": null, "end_ms": null,
@@ -118,11 +119,26 @@ progress, see `index_file(on_progress=...)`).
 is removed; `sources` then lists the closest passages that were checked). In both cases
 `faithfulness` = 1.0 (no claim was made) and no faithfulness LLM call is spent.
 
+`beyond` (`qa.general_knowledge: true`): an optional part the model writes after the
+`[BEYOND]` marker — general subject knowledge and reasoning that is **not** in the course
+material (background, an example, or the answer itself when `found` is `false`). It is removed from
+`answer`, shown in a separate light-blue box, and never scored by the faithfulness check, so the
+grounding / hallucination metrics only cover what the material supports. `null` when the model
+added nothing or the option is off.
+
 ### `POST /generate`
 ```json
-{"course": "CENG336", "lecture": 1, "types": ["Multiple Choice", "True/False"], "n": 5,
- "difficulty": "Medium", "provider": null}
+{"course": "CENG336", "lecture": 1,
+ "counts": {"Multiple Choice": 5, "True/False": 1, "Short Answer": 1, "Conceptual/Computational": 1},
+ "topic": "sampling theorem", "difficulty": "Medium", "provider": null, "exam_ids": null}
 ```
+`counts`: questions per type, 0–10 each, at most 20 in total (otherwise `400`); the questions come
+back grouped in this order. `topic` (optional): the excerpts are the ones the Q&A search finds for
+it (`400` if nothing matches); without it, a random sample of the course / lecture. The older form
+`"types": [...], "n": 5` (types cycled) still works when `counts` is omitted. `exam_ids` (optional):
+past exams of the same course (`/exams`); the questions are then written in the instructor's style,
+with up to 8 of the exams' questions as examples, and, without a `topic`, from the excerpts about
+the topics the exams ask about. Such questions carry `"style_ref": "Midterm 2023: <example>"`.
 ```json
 {"questions": [
   {"id": "a1b2c3d4", "type": "Multiple Choice", "difficulty": "Medium",
@@ -130,7 +146,23 @@ is removed; `sources` then lists the closest passages that were checked). In bot
    "explanation": "...", "source": "Chapter_1.pdf, p. 39"}
 ]}
 ```
-`options` is `null` for non-MCQ. Invalid LLM items are dropped, so fewer than `n` may come back.
+`options` is `null` for non-MCQ. Each LLM item is checked against the `format` it states (so a
+reordered reply loses nothing); invalid items and extras beyond the requested count per type are
+dropped, so fewer questions than requested may come back.
+
+### Past exams: `GET /exams?course=CENG336`, `POST /exams`, `DELETE /exams/{id}`
+`POST /exams` is multipart/form-data: `course`, `name` (optional; the file name by default), and
+either `file` (pdf / docx / pptx) or `text` (pasted questions, e.g. of a scanned exam). The LLM reads
+the first ~12,000 characters once; `400` when the file has no text or no question is recognised.
+Exams are stored in SQLite, not in the vector index: Q&A and the study buddy never cite them.
+```json
+{"id": "3f2a…", "course": "CENG336", "name": "Midterm 2023", "created": "2026-10-21T10:00:00+00:00",
+ "truncated": false, "summary": "Mostly calculations; every answer must be justified.",
+ "style_points": ["gives a signal and asks for its period"], "topics": ["periodicity", "convolution"],
+ "mix": {"mcq": 0, "tf": 1, "short": 0, "concept": 2},
+ "questions": [{"text": "Is x(n)=cos(0.3πn) periodic? Justify.", "topic": "periodicity", "format": "concept"}]}
+```
+`GET` returns `{"exams": [...]}` in this shape; `DELETE` returns `{"deleted": true}` or `404`.
 
 ### `POST /evaluate`
 ```json
@@ -255,9 +287,10 @@ Both return 404 when the original file is not in `data/uploads/<course>/`, 400 f
 · `concepts`. `language`: `en` | `tr` (language of the answer). `page`/`time_ms`/`section` = where the
 student is; in `ask` mode chunks there get a small bonus (`study.page_boost`).
 
-- `stream: false` → `{"answer", "sources", "mode", "language", "retrieval_ms", "total_s", "provider"}`
+- `stream: false` → `{"answer", "beyond", "sources", "mode", "language", "retrieval_ms", "total_s", "provider"}`
 - `stream: true` → `text/plain`: the first line is JSON `{"sources", "mode", "language", "retrieval_ms"}`,
-  everything after it is the answer as it is generated.
+  everything after it is the answer as it is generated. The "beyond the document" part follows a
+  `[BEYOND]` marker in the text (`study.general_knowledge: true`); the UI splits it off.
 
 `sources`: `[{"n": 1, "label": "Page 3", "page": 3, "section": null, "start_ms": null, "end_ms": null,
 "score": 0.61, "text": "first 300 characters"}]` (`n` matches the `[1]` citations). Errors before the

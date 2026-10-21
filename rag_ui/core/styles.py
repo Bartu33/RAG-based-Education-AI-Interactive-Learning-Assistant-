@@ -133,6 +133,12 @@ button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hov
   letter-spacing:.08em; text-transform:uppercase; white-space:normal; }
 .privacy{ display:flex; gap:.8rem; align-items:center; margin-top:1.4rem; padding:.9rem 1.2rem; border-radius:14px;
   background:rgba(45,212,191,.06); border:1px solid rgba(45,212,191,.2); color:#b6c2d1; font-size:.9rem; }
+
+/* ---------- "beyond the course material" box (general knowledge / reasoning) ---------- */
+[class*="st-key-beyond_"]{ background:rgba(125,211,252,.10); border:1px solid rgba(125,211,252,.45);
+  border-left:4px solid #7dd3fc; border-radius:12px; padding:.75rem 1rem .4rem; margin-top:.6rem; }
+.beyond-head{ color:#7dd3fc; font-weight:700; font-size:.9rem; }
+.beyond-note{ color:var(--muted); font-size:.76rem; margin:-.1rem 0 .3rem; }
 </style>
 """
 
@@ -141,3 +147,15 @@ def inject():
 
 def kicker(t):
     st.markdown(f'<div class="kicker">{t}</div>', unsafe_allow_html=True)
+
+
+def beyond_box(text: str, key: str, source: str = "course materials") -> None:
+    """The part of an answer that does NOT come from the course material, in a light-blue box."""
+    import streamlit as st
+    with st.container(key=f"beyond_{key}"):
+        st.markdown('<div class="beyond-head">💡 Beyond the course material</div>'
+                    f'<div class="beyond-note">General knowledge and reasoning, not taken from your '
+                    f'{source}. Double-check it with the lecture notes or your instructor.</div>',
+                    unsafe_allow_html=True)
+        st.markdown(text)
+
