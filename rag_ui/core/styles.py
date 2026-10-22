@@ -4,6 +4,12 @@ CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
 
+/* Streamlit fades the whole page while it reruns (every click, the video player's play / pause,
+   the transcription progress). The page is redrawn in place, so keep it at full opacity. */
+[data-stale="true"]{ opacity:1 !important; transition:none !important; }
+/* a long displayed formula scrolls sideways instead of being cut off in a narrow chat */
+.katex-display{ overflow-x:auto; overflow-y:hidden; padding:.2rem 0; }
+
 :root{
   --teal:#2dd4bf; --teal2:#14b8a6; --bg:#0b0f14; --panel:#121923; --panel2:#171f2b;
   --line:#222d3b; --muted:#8b98a9; --text:#e6edf3;
@@ -152,10 +158,11 @@ def kicker(t):
 def beyond_box(text: str, key: str, source: str = "course materials") -> None:
     """The part of an answer that does NOT come from the course material, in a light-blue box."""
     import streamlit as st
+    from core.board import fix_markdown   # LaTeX \( \) / \[ \] -> $ / $$ so the formulas render
     with st.container(key=f"beyond_{key}"):
         st.markdown('<div class="beyond-head">💡 Beyond the course material</div>'
                     f'<div class="beyond-note">General knowledge and reasoning, not taken from your '
                     f'{source}. Double-check it with the lecture notes or your instructor.</div>',
                     unsafe_allow_html=True)
-        st.markdown(text)
+        st.markdown(fix_markdown(text))
 

@@ -128,6 +128,7 @@ class StudyRequest(BaseModel):
     time_ms: Optional[int] = None              # video: the moment the student is at
     section: Optional[str] = None              # docx: the section the student is reading
     history: Optional[list[dict]] = None       # earlier turns [{"role", "content"}], oldest first
+    top_context: Optional[int] = None          # excerpts sent with a question (Settings preset)
     provider: Optional[str] = None
     stream: bool = False
 
@@ -311,6 +312,41 @@ def lecture_video_file(job_id: str):
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
     return FileResponse(path, media_type="video/mp4", content_disposition_type="inline")
+
+
+# --- a lecture video a student uploads to study with: transcribed and indexed in the background ---
+@app.post("/videos")
+def upload_video(file: UploadFile = File(...), course: str = Form(...), lecture: int = Form(...)):
+    """Starts transcribing at once and returns the job; the video can be opened in Interactive
+    Learning as soon as its first minutes are indexed (poll GET /videos/jobs/{id})."""
+    from backend.tasks import video_upload
+    name = Path(file.filename or "").name
+    course = course.strip()
+    if EXTENSIONS.get(Path(name).suffix.lower()) != "video":
+        raise HTTPException(status_code=400, detail="Upload a video file (mp4, mkv or avi)")
+    if not course or Path(course).name != course:
+        raise HTTPException(status_code=400, detail="Invalid course")
+    upload_dir = resolve_path("data/uploads") / course
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    with open(upload_dir / name, "wb") as out:
+        shutil.copyfileobj(file.file, out)
+    return video_upload.start(upload_dir / name, course, lecture)
+
+
+@app.get("/videos/jobs/{job_id}")
+def video_job(job_id: str):
+    from backend.tasks import video_upload
+    try:
+        return video_upload.status(job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/videos/status")
+def video_status(course: str, document: str):
+    """The latest upload job of this video since the backend started, or null."""
+    from backend.tasks import video_upload
+    return {"job": video_upload.status_for(course, document)}
 
 
 # --- Interactive Learning: one open document + a study-buddy chat limited to it ---

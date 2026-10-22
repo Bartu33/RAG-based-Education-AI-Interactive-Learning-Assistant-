@@ -27,11 +27,15 @@ BEAT_PAUSE_S = 0.7     # pause after each step, before the next line is pointed 
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap');
-.mini-video{ position:fixed; right:24px; bottom:128px; width:340px; z-index:1000; background:#0b0f14;
-  border:1px solid rgba(45,212,191,.5); border-radius:14px; overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.5); }
-.mini-video video{ width:100%; display:block; background:#000; }
-.mini-video .mv-head{ font-size:.78rem; padding:.4rem .7rem; color:#b6c2d1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-@media (max-width: 760px){ .mini-video{ width:200px; right:12px; bottom:112px; } }
+.st-key-corner_video{ position:fixed; right:24px; bottom:128px; width:340px; z-index:1000; background:#0b0f14;
+  border:1px solid rgba(45,212,191,.5); border-radius:14px; overflow:hidden; box-shadow:0 14px 40px rgba(0,0,0,.5);
+  gap:0 !important; }
+.st-key-corner_video video{ width:100%; display:block; background:#000; }
+.st-key-corner_video .mv-head{ font-size:.78rem; padding:.4rem .7rem; color:#b6c2d1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.st-key-corner_close{ position:absolute; top:2px; right:4px; z-index:2; }
+.st-key-corner_close button{ min-height:0 !important; padding:.05rem .45rem !important; border:0 !important;
+  background:rgba(0,0,0,.45) !important; color:#fff !important; }
+@media (max-width: 760px){ .st-key-corner_video{ width:200px; right:12px; bottom:112px; } }
 [class*="st-key-wb_"]{ background:#fbfbf8; border:1px solid #d6d6cf; border-radius:14px; padding:1.3rem 1.6rem 1rem;
   box-shadow: inset 0 0 0 6px #efefe9; min-height:220px; }
 /* handwriting for the words only: KaTeX keeps its own fonts, or the symbols break */
@@ -89,13 +93,19 @@ def fetch(question: str, answer: str, course: str, lecture, sources: list, provi
                 "notes": [f"Teaching board unavailable: {exc}"]}
 
 
+def _close_corner() -> None:
+    st.session_state.board_focus = None
+
+
 def _corner_video(course: str, video: dict) -> None:
     start, end = video["start_ms"] // 1000, max(video["end_ms"] // 1000, video["start_ms"] // 1000 + 1)
     url = html.escape(f"{api.study_file_url(course, video['document'])}#t={start},{end}", quote=True)
     label = html.escape(f"🎬 {video['document']} · {mmss(video['start_ms'])}–{mmss(video['end_ms'])}")
-    st.markdown(f'<div class="mini-video"><div class="mv-head">{label}</div>'
-                f'<video src="{url}" controls autoplay muted playsinline preload="auto"></video></div>',
-                unsafe_allow_html=True)
+    with st.container(key="corner_video"):   # fixed in the corner by the CSS above
+        st.button("✕", key="corner_close", on_click=_close_corner, help="Close the video")
+        st.markdown(f'<div class="mv-head">{label}</div>'
+                    f'<video src="{url}" controls autoplay muted playsinline preload="auto"></video>',
+                    unsafe_allow_html=True)
 
 
 def _speech(text: str):
@@ -278,6 +288,9 @@ def _video(m: dict) -> None:
             st.caption(f"ℹ️ {note}")
     elif job["state"] == "error":
         st.caption(f"The video could not be made: {job.get('error')}")
+        if "No module named" in str(job.get("error")):
+            st.caption("A package of requirements.txt is missing on the server: run "
+                       "`pip install -r requirements.txt` and restart uvicorn.")
         if m.get("board") and st.button("🔁 Try again", key=f"vid_retry_{m['mid']}"):
             m["video_job"] = start_video(m["question"], m["course"], m["board"])
             st.rerun()

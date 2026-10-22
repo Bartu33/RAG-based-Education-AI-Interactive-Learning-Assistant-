@@ -114,8 +114,8 @@ def ask(question: str, course: str, lecture: Optional[int] = None,
     cfg = cfg or {}
     body = {"question": question, "course": course, "lecture": lecture,
             "ts_range": list(ts_range) if ts_range else None,
-            "config": {k: cfg[k] for k in ("provider", "top_k_candidates", "top_k_context")
-                       if k in cfg}}
+            "config": {k: cfg[k] for k in ("provider", "top_k_candidates", "top_k_context",
+                                           "score_faithfulness") if k in cfg}}
     return _call("POST", "/ask", json=body)
 
 
@@ -179,6 +179,23 @@ def study_file_url(course: str, document: str) -> str:
     """Address the browser itself loads (video player), so it must be reachable from the browser."""
     from urllib.parse import urlencode
     return f"{BASE_URL}/study/file?{urlencode({'course': course, 'document': document})}"
+
+
+def upload_video(name: str, data: bytes, course: str, lecture: int,
+                 mime: str = "application/octet-stream") -> dict:
+    """Starts transcribing a lecture video in the background; returns the job (see video_job)."""
+    return _call("POST", "/videos", data={"course": course, "lecture": str(lecture)},
+                 files=[("file", (name, data, mime))], timeout=LONG)
+
+
+def video_job(job_id: str) -> dict:
+    """{id, course, lecture, document, state (queued | transcribing | done | failed), done_ms,
+    duration_ms, chunks, error}"""
+    return _call("GET", f"/videos/jobs/{job_id}")
+
+
+def video_status(course: str, document: str) -> Optional[dict]:
+    return _call("GET", "/videos/status", params={"course": course, "document": document})["job"]
 
 
 def study_chat(body: dict) -> dict:

@@ -73,6 +73,14 @@ study:                        # Interactive Learning page: chat limited to the o
   max_tokens: 900
   max_tokens_long: 1600       # summary / key concepts / explain
   general_knowledge: true     # the buddy may add a separate "beyond the document" part
+  watched_back_ms: 180000     # video question: the part just watched (3 min back) comes first
+  watched_ahead_ms: 20000
+  watched_boost: 0.1
+
+video_upload:                 # Interactive Learning: a lecture video a student uploads to study with
+  beam_size: 1                # whisper greedy decoding: ~2x faster than beam 5 (Materials keeps 5)
+  step_s: 90                  # the transcript is indexed every 90 s of audio, so the video can be
+                              # watched and asked about while the rest is still being transcribed
 
 board:                        # Q&A teaching board: corner video + highlighted page / whiteboard
   enabled: true

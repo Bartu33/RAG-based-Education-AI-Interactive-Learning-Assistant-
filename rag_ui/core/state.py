@@ -11,8 +11,23 @@ QTYPES = ["Multiple Choice", "True/False", "Short Answer", "Conceptual/Computati
 
 DEFAULT_CFG = {
     "provider": PROVIDERS[0], "top_k_candidates": 20, "top_k_context": 4,
+    "score_faithfulness": True, "study_top_k": 4,
     "conf_threshold": 0.60, "th_grounded": 0.85, "th_partial": 0.50,
 }
+
+# Settings → General: one choice instead of the retrieval knobs (Advanced still shows them all).
+# More excerpts = fuller answers but more tokens per question; the grounding check is one extra
+# LLM call per Q&A answer.
+PRESETS = {
+    "Low": {"top_k_candidates": 10, "top_k_context": 3, "score_faithfulness": False, "study_top_k": 3},
+    "Medium": {"top_k_candidates": 20, "top_k_context": 4, "score_faithfulness": True, "study_top_k": 4},
+    "High": {"top_k_candidates": 30, "top_k_context": 6, "score_faithfulness": True, "study_top_k": 6},
+}
+
+
+def preset_of(cfg: dict) -> Optional[str]:
+    """The preset the current settings match, or None (changed in Advanced)."""
+    return next((name for name, p in PRESETS.items() if all(cfg.get(k) == v for k, v in p.items())), None)
 
 
 def backend_defaults() -> dict:
@@ -32,6 +47,8 @@ def backend_defaults() -> dict:
 def init_state():
     if "cfg" not in st.session_state:
         st.session_state.cfg = backend_defaults()
+    for k, v in DEFAULT_CFG.items():   # settings added since this browser session started
+        st.session_state.cfg.setdefault(k, v)
     st.session_state.setdefault("chat", [])
     st.session_state.setdefault("questions", [])
     st.session_state.setdefault("checked", {})   # question id -> {"correct": bool} (choice questions)

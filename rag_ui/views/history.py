@@ -1,6 +1,7 @@
 from datetime import datetime
 import pandas as pd, streamlit as st
 from core import styles
+from core.board import fix_markdown
 from core import api_client as api
 from core.state import log_out, token
 styles.kicker("PRACTICE HISTORY"); st.title("📒 My Results")
@@ -54,7 +55,7 @@ def show_question(i: int, q: dict) -> None:
     else:
         mark = "🟢" if a["score"] >= 70 else "🟡" if a["score"] >= 50 else "🔴"
     score = f" · {a['score']}/100" if a and a["score"] is not None else ""
-    st.markdown(f"{mark} **{i}. {q['question']}**")
+    st.markdown(f"{mark} **{i}.** " + fix_markdown(q["question"]))
     st.caption(f"{q['type']}{score}" + (f" · answered {a['tries']} times, latest shown" if a and a["tries"] > 1 else ""))
     if q.get("options"):
         st.write("  \n".join(f"{k}) {o}" for k, o in zip("ABCD", q["options"])))
@@ -69,9 +70,9 @@ def show_question(i: int, q: dict) -> None:
             (st.success if ok else st.warning if weak else st.error)(a["student_answer"])
     with right:
         st.markdown("**Correct answer**")
-        st.success(q["correct_answer"])
+        st.success(fix_markdown(q["correct_answer"]))
     if q.get("explanation"):
-        st.write(q["explanation"])
+        st.markdown(fix_markdown(q["explanation"]))
     if a and a["feedback"]:
         st.markdown("**Feedback you received**")
         st.write("  \n".join(f"• {f}" for f in a["feedback"]))

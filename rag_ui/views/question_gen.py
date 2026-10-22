@@ -1,5 +1,6 @@
 import json, uuid, streamlit as st
 from core import styles
+from core.board import fix_markdown
 from core import api_client as api
 from core.state import QTYPES, course_picker, is_choice, record_attempt, render_evaluation, safe, token
 styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
@@ -131,13 +132,13 @@ if qs:
 
 
 def explanation(q):
-    st.write(q["explanation"]); st.caption(f"📎 {q['source']}")
+    st.markdown(fix_markdown(q["explanation"])); st.caption(f"📎 {q['source']}")
 
 
 for i, q in enumerate(qs, 1):
     with st.container(border=True):
         st.markdown(f'<span class="pill">{q["type"]}</span><span class="pill">{q["difficulty"]}</span>', unsafe_allow_html=True)
-        st.markdown(f"**{i}. {q['question']}**")
+        st.markdown(f"**{i}.** " + fix_markdown(q["question"]))
         if q.get("style_ref"):
             st.caption(f"🧾 In the style of {q['style_ref']}")
         if is_choice(q):
@@ -185,7 +186,7 @@ for i, q in enumerate(qs, 1):
             else:
                 render_evaluation(result, result.get("rid"), q["question"])
                 with st.expander("Model answer"):
-                    st.success(q["correct_answer"]); explanation(q)
+                    st.success(fix_markdown(q["correct_answer"])); explanation(q)
                 if st.button("Try again", key=f"retry_{q['id']}"):
                     graded.pop(q["id"]); st.session_state.pop(f"txt_{q['id']}", None); st.rerun()
 if not qs:

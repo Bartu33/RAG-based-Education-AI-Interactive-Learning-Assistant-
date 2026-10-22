@@ -97,10 +97,13 @@ progress, see `index_file(on_progress=...)`).
 ```json
 {"question": "Paket anahtarlama nedir?", "course": "CENG336", "lecture": 1,
  "ts_range": [12, 14],
- "config": {"provider": "Groq (GPT-OSS 120B)", "top_k_candidates": 20, "top_k_context": 4}}
+ "config": {"provider": "Groq (GPT-OSS 120B)", "top_k_candidates": 20, "top_k_context": 4,
+            "score_faithfulness": true}}
 ```
 `lecture`, `ts_range` (minutes the student is watching), `config` are optional.
 `config.provider` accepts the UI label; it is mapped with `resolve_provider_name`.
+`config.score_faithfulness: false` skips the grounding check (one LLM call less; `faithfulness` is
+then `null`). The UI's Settings → General presets (Low / Medium / High) set these keys.
 
 ```json
 {"answer": "...[1][2]",
@@ -259,6 +262,21 @@ Tests newest first, each with its questions and the latest attempt per question 
 ```
 `DELETE` → `{"deleted_tests": 3}`. Everything lives in SQLite at `database.path` (`data/app.db`, git-ignored).
 
+### Lecture videos: `POST /videos` (multipart/form-data), `GET /videos/jobs/{id}`, `GET /videos/status`
+`POST /videos` takes `file` (mp4 / mkv / avi), `course`, `lecture`; the file is saved like an
+`/ingest` upload and transcribed in the background (faster-whisper, `video_upload.beam_size`). The
+transcript is indexed every `video_upload.step_s` seconds of audio, so the video shows up in
+`/documents` and can be studied after its first minutes. Returns the job:
+```json
+{"id": "a1b2c3d4e5f6", "course": "CENG336", "lecture": 3, "document": "lec3.mp4",
+ "state": "transcribing", "done_ms": 270000, "duration_ms": 2880000, "chunks": 9, "error": null}
+```
+`state`: `queued` | `transcribing` | `done` | `failed` (`error` says why). `GET /videos/jobs/{id}`
+returns the same (`404` after a backend restart); `GET /videos/status?course=&document=` returns
+`{"job": ... | null}`, the latest job of that video. A `/study/chat` question about a video with
+`time_ms` prefers the part just watched (`study.watched_back_ms` / `watched_ahead_ms`) and always
+includes the excerpt at that moment.
+
 ### Interactive Learning (one open document + study-buddy chat)
 The chat only searches the chunks of the open document: they are read once and kept in memory
 until the next write to the store, so a question costs one local embedding + a dot product over
@@ -281,8 +299,9 @@ Both return 404 when the original file is not in `data/uploads/<course>/`, 400 f
 {"course": "CENG336", "document": "Chapter_1.pdf", "mode": "ask", "question": "What is a protocol?",
  "language": "tr", "page": 3, "time_ms": null, "section": null,
  "history": [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}],
- "provider": null, "stream": true}
+ "provider": null, "stream": true, "top_context": null}
 ```
+`top_context` (optional): excerpts sent with an `ask` question, 1-12 (default `study.top_context`).
 `mode`: `ask` (needs `question`) · `summary` · `explain` (uses `page` / `time_ms` / `section`)
 · `concepts`. `language`: `en` | `tr` (language of the answer). `page`/`time_ms`/`section` = where the
 student is; in `ask` mode chunks there get a small bonus (`study.page_boost`).

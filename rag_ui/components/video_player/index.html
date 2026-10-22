@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- Lecture video player for Interactive Learning (a Streamlit component, no build step).
+     It tells the page where the student is in the video (play / pause / seek), so the study buddy
+     knows the moment being watched. "main" = big player; "mini" = small corner player while the
+     chat is open: clicking it sends "expand" and the page swaps the two back. The page keeps this
+     component in the same place in both modes, so the video is never reloaded and keeps playing. -->
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
+               font-family: "Source Sans Pro", system-ui, sans-serif; color: #e6edf3; }
+  #wrap { position: relative; border-radius: 12px; overflow: hidden; background: #000; }
+  video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+  #mini { display: none; position: absolute; inset: 0; cursor: pointer;
+          background: linear-gradient(180deg, rgba(0,0,0,.55) 0, rgba(0,0,0,0) 38%); }
+  #mini .head { position: absolute; top: 8px; left: 10px; right: 10px; font-size: 13px; font-weight: 700;
+                display: flex; justify-content: space-between; gap: 8px; }
+  #mini .head span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #mini button { position: absolute; left: 8px; bottom: 8px; border: 0; border-radius: 50%;
+                 width: 34px; height: 34px; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; cursor: pointer; }
+  #mini .time { position: absolute; right: 10px; bottom: 12px; font-size: 12px; background: rgba(0,0,0,.6);
+                padding: 1px 6px; border-radius: 6px; }
+  body.mini #mini { display: block; }
+  body.mini #wrap { border: 2px solid #2dd4bf; box-shadow: 0 8px 28px rgba(0,0,0,.55); }
+  #ask { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  #ask button { border: 1px solid rgba(45,212,191,.6); background: rgba(45,212,191,.12); color: #e6edf3;
+                border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
+  #ask button:hover { background: rgba(45,212,191,.25); }
+  #ask small { color: #8b98a5; }
+  body.mini #ask { display: none; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <video id="v" controls playsinline preload="metadata"></video>
+  <div id="mini" title="Back to the video">
+    <div class="head"><span id="label"></span><span>⤢</span></div>
+    <button id="pp" title="Play / pause">▶</button>
+    <span class="time" id="clock">0:00</span>
+  </div>
+</div>
+<div id="ask"><button id="askbtn">💬 Ask the study buddy about this moment</button>
+  <small id="where"></small></div>
+<script>
+  const v = document.getElementById("v");
+  const send = (type, data) => window.parent.postMessage(Object.assign({isStreamlitMessage: true, type}, data), "*");
+  const sid = Math.random().toString(36).slice(2);  // one per page load
+  let n = 0, src = null, startApplied = false, lastSeek = null, pendingSeek = null, timer = null;
+
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0));
+    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = String(s % 60).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`; };
+
+  function report(event) {
+    send("streamlit:setComponentValue", {dataType: "json", value: {
+      event, n: `${sid}-${++n}`, t: v.currentTime, playing: !v.paused && !v.ended,
+      rate: v.playbackRate, duration: isFinite(v.duration) ? v.duration : null}});
+  }
+  function height() { send("streamlit:setFrameHeight", {height: document.body.scrollHeight}); }
+  function seekTo(t) { if (v.readyState >= 1) v.currentTime = t; else pendingSeek = t; }
+
+  ["play", "pause", "ended"].forEach(e => v.addEventListener(e, () => report(e)));
+  v.addEventListener("seeked", () => { clearTimeout(timer); timer = setTimeout(() => report("seeked"), 400); });
+  v.addEventListener("loadedmetadata", () => {
+    if (pendingSeek !== null) { v.currentTime = pendingSeek; pendingSeek = null; }
+    height(); report("loaded");
+  });
+  v.addEventListener("timeupdate", () => {
+    document.getElementById("clock").textContent = fmt(v.currentTime);
+    document.getElementById("where").textContent = `at ${fmt(v.currentTime)}`;
+  });
+  ["play", "pause"].forEach(e => v.addEventListener(e, () =>
+    document.getElementById("pp").textContent = v.paused ? "▶" : "❚❚"));
+  document.getElementById("pp").addEventListener("click", ev => {
+    ev.stopPropagation(); v.paused ? v.play() : v.pause(); });
+  document.getElementById("mini").addEventListener("click", () => report("expand"));
+  document.getElementById("askbtn").addEventListener("click", () => report("ask"));
+  new ResizeObserver(height).observe(document.body);
+
+  window.addEventListener("message", ev => {
+    if (!ev.data || ev.data.type !== "streamlit:render") return;
+    const a = ev.data.args;
+    if (a.url !== src) {           // a new video (not a mode change): load it
+      src = a.url; startApplied = false; lastSeek = a.seek ? a.seek.n : null;
+      v.src = a.url;
+      if (a.start) pendingSeek = a.start;
+    }
+    if (a.seek && a.seek.n !== lastSeek) { lastSeek = a.seek.n; seekTo(a.seek.t); }
+    document.body.classList.toggle("mini", a.mode === "mini");
+    v.style.maxHeight = a.mode === "mini" ? "" : `${a.max_height || 560}px`;
+    v.controls = a.mode !== "mini";
+    document.getElementById("label").textContent = a.label || "";
+    height();
+  });
+  send("streamlit:componentReady", {apiVersion: 1});
+</script>
+</body>
+</html>

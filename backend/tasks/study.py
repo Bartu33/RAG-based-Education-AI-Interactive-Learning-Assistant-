@@ -30,6 +30,9 @@ DEFAULTS = {
     "overview_chunks": 12,       # excerpts sent for summary / key concepts
     "max_chunk_chars": 1500,     # each overview excerpt is cut to this length
     "explain_window_ms": 60000,  # video: "explain this moment" uses +/- this window
+    "watched_back_ms": 180000,   # video question: the part just watched (this far back) is boosted
+    "watched_ahead_ms": 20000,   # ... and this far ahead of the moment the student is at
+    "watched_boost": 0.1,        # bonus for those chunks (stronger than page_boost: "here" questions)
     "history_turns": 3,          # earlier question/answer pairs sent for follow-up questions
     "max_tokens": 900,
     "max_tokens_long": 1600,     # summary / key concepts / explain
@@ -181,6 +184,14 @@ def _at_location(meta: dict, page: Optional[int], time_ms: Optional[int],
     return page is not None and meta.get("page") == page
 
 
+def _watched(meta: dict, time_ms: int, cfg: dict) -> bool:
+    """Video chunk in the part the student has just watched (or is about to)."""
+    if meta.get("timestamp_start_ms") is None:
+        return False
+    return meta["timestamp_start_ms"] <= time_ms + int(cfg["watched_ahead_ms"]) and \
+        meta["timestamp_end_ms"] >= time_ms - int(cfg["watched_back_ms"])
+
+
 def _spread(hits: list[dict], n: int) -> list[dict]:
     """n chunks evenly spread over the document (in reading order)."""
     if len(hits) <= n:
@@ -203,8 +214,12 @@ def _describe(kind: str, page: Optional[int], time_ms: Optional[int], section: O
 
 def select_chunks(course: str, document: str, mode: str, question: str = "",
                   page: Optional[int] = None, time_ms: Optional[int] = None,
-                  section: Optional[str] = None, store: Optional[VectorStore] = None) -> dict:
+                  section: Optional[str] = None, store: Optional[VectorStore] = None,
+                  top_context: Optional[int] = None) -> dict:
+    """top_context: excerpts sent with a question (default: study.top_context in config.yaml)."""
     cfg = study_cfg()
+    if top_context:
+        cfg["top_context"] = max(1, min(int(top_context), 12))
     if mode not in MODES:
         raise ValueError(f"Unknown mode: {mode}. Use one of {', '.join(MODES)}.")
     t0 = perf_counter()
@@ -224,6 +239,8 @@ def select_chunks(course: str, document: str, mode: str, question: str = "",
         scored = []
         for h, s in zip(hits, sims):
             bonus = boost if _at_location(h["metadata"], page, time_ms, section, window) else 0.0
+            if kind == "video" and time_ms is not None:
+                bonus = float(cfg["watched_boost"]) if _watched(h["metadata"], time_ms, cfg) else 0.0
             scored.append({**h, "score": float(s) + bonus})
         scored.sort(key=lambda h: h["score"], reverse=True)
         k = int(cfg["top_context"])
@@ -235,6 +252,12 @@ def select_chunks(course: str, document: str, mode: str, question: str = "",
             pool.sort(key=lambda h: h["score"], reverse=True)
             scored = pool
         chosen = scored[:k]
+        if kind == "video" and time_ms is not None and chosen \
+                and not any(_at_location(h["metadata"], None, time_ms, None, 0) for h in chosen):
+            # "what does he mean here?": the excerpt at the current moment is always included
+            here = [h for h in scored[k:] if _at_location(h["metadata"], None, time_ms, None, 0)]
+            if here:
+                chosen = chosen[:k - 1] + here[:1]
     elif mode == "explain":
         chosen = [{**h, "score": 1.0} for h in hits
                   if _at_location(h["metadata"], page, time_ms, section, window)]
@@ -245,7 +268,7 @@ def select_chunks(course: str, document: str, mode: str, question: str = "",
         limit = int(cfg["max_chunk_chars"])
         chosen = [{**h, "score": 1.0, "text": h["text"][:limit]}
                   for h in _spread(hits, int(cfg["overview_chunks"]))]
-    return {"chunks": chosen, "location": location,
+    return {"chunks": chosen, "location": location, "kind": kind,
             "retrieval_ms": int((perf_counter() - t0) * 1000)}
 
 
@@ -269,12 +292,13 @@ def _history(history: Optional[list[dict]], turns: int) -> list[dict]:
 def prepare(course: str, document: str, mode: str, question: str = "", language: str = "en",
             page: Optional[int] = None, time_ms: Optional[int] = None,
             section: Optional[str] = None, history: Optional[list[dict]] = None,
-            store: Optional[VectorStore] = None) -> dict:
+            store: Optional[VectorStore] = None, top_context: Optional[int] = None) -> dict:
     """Pick excerpts and build the LLM messages. Shared by the streaming and the plain endpoint."""
     cfg = study_cfg()
     language = language if language in ("tr", "en") else "en"
-    sel = select_chunks(course, document, mode, question, page, time_ms, section, store)
-    messages = build_study_messages(document, mode, sel["chunks"], language, question,
+    sel = select_chunks(course, document, mode, question, page, time_ms, section, store, top_context)
+    task = "ask_video" if mode == "ask" and sel["kind"] == "video" and time_ms is not None else mode
+    messages = build_study_messages(document, task, sel["chunks"], language, question,
                                     sel["location"], _history(history, int(cfg["history_turns"])),
                                     beyond=bool(cfg["general_knowledge"]))
     long = mode in ("summary", "concepts", "explain")

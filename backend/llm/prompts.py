@@ -17,6 +17,12 @@ BEYOND_RULES = (
 )
 
 
+# The UI renders Markdown with KaTeX, which understands $...$ and $$...$$ but not \( \) / \[ \].
+MATH_RULE = (" Write every formula or symbol in LaTeX between single dollar signs for inline math "
+             "($x[n] = \\delta[n-k]$) or double dollar signs on their own lines for a displayed "
+             "formula; never use \\( \\) or \\[ \\].")
+
+
 def split_beyond(text: str) -> tuple[str, str | None]:
     """(part based on the course material, part beyond it or None). Only the first marker splits."""
     m = _BEYOND_RE.search(text)
@@ -32,7 +38,7 @@ QA_SYSTEM = (
     "marker [NO_INFO] and then say in one short sentence that the course materials do not cover "
     "it; do not answer from general knowledge. Cite sources with bracket numbers such as [1] "
     "that match the context blocks. Answer in the same language as the student's question. "
-    "Be concise and precise."
+    "Be concise and precise." + MATH_RULE
 )
 
 FORMAT_SPECS = {
@@ -45,7 +51,8 @@ FORMAT_SPECS = {
 
 QUESTION_GEN_SYSTEM = (
     "You write practice questions for a university course. Use ONLY the numbered course context. "
-    "Every question must be answerable from the context. Write in the same language as the context. "
+    "Every question must be answerable from the context. Write in the same language as the context."
+    + MATH_RULE + " "
     "Respond with JSON only, shaped as: "
     '{"questions":[{"format":"mcq|tf|short|concept","question":"...","options":null,'
     '"correct_answer":"...","explanation":"...","source_index":1}]}'
@@ -173,11 +180,16 @@ STUDY_SYSTEM = (
     "with bracket numbers such as [1]. Keep answers short, clear and encouraging; use Markdown "
     "(short paragraphs, bullet points, **bold** key terms). Earlier messages of the conversation are "
     "context only. Write your whole answer in {language}, even if the document or the question is "
-    "in another language; keep technical terms in their original form when that is clearer."
+    "in another language; keep technical terms in their original form when that is clearer." + MATH_RULE
 )
 
 STUDY_TASKS = {
     "ask": "STUDENT QUESTION:\n{question}",
+    "ask_video": (
+        "The student is watching the lecture video and is now at {location}. Excerpts from the part "
+        "just watched come first; when the question says 'this', 'here' or 'now', it means this "
+        "moment.\n\nSTUDENT QUESTION:\n{question}"
+    ),
     "summary": (
         "Summarize this document for the student: first a 2-3 sentence overview, then the main "
         "topics as short bullet points (with the key definitions), and finally 3 key takeaways."

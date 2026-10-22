@@ -49,7 +49,7 @@ def answer_question(question: str, course: str, lecture: Optional[int] = None,
     faith = None  # if disabled in config.yaml the UI must handle None
     if not found:
         faith = 1.0  # a "not covered" reply makes no claim, so there is nothing to verify
-    elif get_config()["qa"]["score_faithfulness"]:
+    elif overrides.get("score_faithfulness", get_config()["qa"]["score_faithfulness"]):
         faith = faithfulness_score(answer, contexts, used)
 
     return {"answer": answer, "found": found, "beyond": beyond, "faithfulness": faith,

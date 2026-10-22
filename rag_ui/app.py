@@ -19,7 +19,6 @@ pages = [st.Page("views/login.py", title="Log in", icon="🔑")] if not st.sessi
     st.Page("views/interactive.py", title="Interactive Learning", icon="🧠"),
     st.Page("views/question_gen.py", title="Question Generation", icon="📝"),
     st.Page("views/history.py", title="My Results", icon="📒"),
-    st.Page("views/benchmark.py", title="Benchmark", icon="📊"),
     st.Page("views/survey.py", title="Feedback", icon="📋"),
     st.Page("views/settings.py", title="Settings", icon="⚙️"),
 ]

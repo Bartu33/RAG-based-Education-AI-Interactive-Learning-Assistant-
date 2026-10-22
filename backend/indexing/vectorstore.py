@@ -17,6 +17,11 @@ class EmbeddingModelMismatch(RuntimeError):
     """The collection was built with another embedding model than config.yaml names."""
 
 
+def chunk_id(course: str, lecture: int, document: str, i: int) -> str:
+    """Id of the i-th chunk of a document (its reading position can be recovered from it)."""
+    return hashlib.md5(f"{course}|{lecture}|{document}|{i}".encode()).hexdigest()
+
+
 def and_filter(conditions: list[Optional[dict]]) -> Optional[dict]:
     """Build a Chroma `where` clause; returns None when there is nothing to filter."""
     conditions = [c for c in conditions if c]
@@ -177,7 +182,7 @@ class ChromaStore(VectorStore):
                 key = (c.course, c.lecture, c.document)
                 i = counters.get(key, 0)
                 counters[key] = i + 1
-                ids.append(hashlib.md5(f"{c.course}|{c.lecture}|{c.document}|{i}".encode()).hexdigest())
+                ids.append(chunk_id(c.course, c.lecture, c.document, i))
         emb = np.asarray(embeddings, dtype=np.float32)
         for s in range(0, len(chunks), self._max_batch):
             e = s + self._max_batch

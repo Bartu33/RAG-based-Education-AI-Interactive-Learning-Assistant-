@@ -8,3 +8,6 @@ font = "sans serif"
 
 [client]
 toolbarMode = "minimal"
+
+[server]
+maxUploadSize = 1024        # MB: lecture videos are large
