@@ -2,14 +2,18 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 from tests.test_beyond import _qa
 from tests.test_study import DOC, store  # noqa: F401  (fixture)
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rag_ui"))
-from core.state import DEFAULT_CFG, PRESETS, preset_of  # noqa: E402
+UI = str(Path(__file__).resolve().parent.parent / "rag_ui")
 
 
 def test_presets_cover_the_same_settings_and_defaults_are_medium():
+    pytest.importorskip("streamlit")   # the UI's packages (rag_ui/requirements.txt) are not in CI
+    sys.path.insert(0, UI)
+    from core.state import DEFAULT_CFG, PRESETS, preset_of
     assert {tuple(sorted(p)) for p in PRESETS.values()} == {tuple(sorted(PRESETS["Medium"]))}
     assert preset_of(DEFAULT_CFG) == "Medium"
     assert preset_of({**DEFAULT_CFG, **PRESETS["Low"]}) == "Low"
