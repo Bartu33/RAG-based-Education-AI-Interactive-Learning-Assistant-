@@ -199,6 +199,37 @@ def test_items_are_checked_by_their_own_format_and_capped(monkeypatch):
     assert "Write exactly 4 questions" in seen["prompt"] and "Focus topic" not in seen["prompt"]
 
 
+def test_concept_questions_carry_kind_and_final_answer(monkeypatch):
+    from backend.tasks import question_gen as qg
+    reply = json.dumps({"questions": [
+        {"format": "concept", "kind": "calculation", "question": "fs = 8 kHz. Nyquist frequency?",
+         "correct_answer": "f_N = fs / 2 = 4 kHz", "final_answer": " 4 kHz "},
+        {"format": "concept", "kind": "conceptual", "question": "Why sample above 2B?",
+         "correct_answer": "To avoid aliasing.", "final_answer": "ignored"},       # conceptual -> no result
+        {"format": "concept", "question": "Q3?", "correct_answer": "x"},            # no kind -> conceptual
+        {"format": "mcq", "question": "M?", "options": ["a", "b", "c", "d"], "correct_answer": "a",
+         "kind": "calculation", "final_answer": "5"}]})                             # not concept -> None
+    seen = {}
+
+    def chat(messages, **kw):
+        seen["system"], seen["max_tokens"] = messages[0]["content"], kw["max_tokens"]
+        return reply, "groq"
+    monkeypatch.setattr(qg, "chat_with_fallback", chat)
+    out = qg.generate_questions("C", None, counts={"Multiple Choice": 1, "Conceptual/Computational": 3},
+                                difficulty="Medium", store=_one_chunk_store())
+    got = {q["question"]: (q["kind"], q["final_answer"]) for q in out}
+    assert got == {"M?": (None, None), "fs = 8 kHz. Nyquist frequency?": ("calculation", "4 kHz"),
+                   "Why sample above 2B?": ("conceptual", None), "Q3?": ("conceptual", None)}
+    assert seen["max_tokens"] == 500 + 250 * 4 + qg.CONCEPT_EXTRA_TOKENS * 3
+    assert "final_answer" in seen["system"]
+
+
+def test_concept_spec_asks_for_solvable_calculations():
+    from backend.llm.prompts import FORMAT_SPECS
+    spec = FORMAT_SPECS["concept"]
+    assert "calculation" in spec and "final_answer" in spec and "every value needed" in spec
+
+
 def test_topic_uses_the_search_instead_of_a_random_sample(monkeypatch):
     from backend.tasks import question_gen as qg
     import backend.retrieval.retriever as retriever

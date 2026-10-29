@@ -45,8 +45,15 @@ FORMAT_SPECS = {
     "mcq": "Multiple choice: 'options' has exactly 4 strings; 'correct_answer' equals one option.",
     "tf": "True/False: 'options' is null; 'correct_answer' is 'True' or 'False'.",
     "short": "Short answer: 'options' is null; 'correct_answer' is a 1-3 sentence model answer.",
-    "concept": "Conceptual/calculation: 'options' is null; 'correct_answer' holds the key reasoning "
-               "or the worked solution.",
+    "concept": (
+        "Conceptual/calculation: 'options' is null. If the context gives a formula, an equation or "
+        "numerical data, write a CALCULATION question ('kind' = \"calculation\"): use only formulas and "
+        "relations from the context, state every value needed (with units) in the question itself so it "
+        "can be solved without the context, and choose values that give a clean, checkable result; "
+        "'correct_answer' is the worked solution step by step and 'final_answer' is the result with its "
+        "unit. Otherwise write a conceptual question ('kind' = \"conceptual\"): 'correct_answer' holds "
+        "the key reasoning and 'final_answer' is null."
+    ),
 }
 
 QUESTION_GEN_SYSTEM = (
@@ -55,7 +62,8 @@ QUESTION_GEN_SYSTEM = (
     + MATH_RULE + " "
     "Respond with JSON only, shaped as: "
     '{"questions":[{"format":"mcq|tf|short|concept","question":"...","options":null,'
-    '"correct_answer":"...","explanation":"...","source_index":1}]}'
+    '"correct_answer":"...","explanation":"...","source_index":1,"kind":null,"final_answer":null}]}. '
+    "'kind' and 'final_answer' are used only by the concept format; leave them null for the others."
 )
 
 EVAL_SYSTEM = (

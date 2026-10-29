@@ -12,6 +12,7 @@ MAX_PER_TYPE = 10
 # context grows with the test so that many questions do not all come from the same few excerpts
 MIN_CONTEXT_CHUNKS, MAX_CONTEXT_CHUNKS = 8, 16
 FORMAT_ORDER = ("mcq", "tf", "short", "concept")
+CONCEPT_EXTRA_TOKENS = 100  # a worked calculation is longer than a conceptual answer
 
 
 def _canonical(label: str) -> str:
@@ -34,6 +35,16 @@ def _valid(q: dict, fmt: str) -> bool:
     if fmt == "tf":
         return str(q["correct_answer"]).strip().lower() in ("true", "false")
     return True
+
+
+def _concept_fields(q: dict, fmt: str) -> tuple[Optional[str], Optional[str]]:
+    """(kind, final_answer) of a concept question; (None, None) for the other formats.
+    kind is 'calculation' or 'conceptual'; final_answer is the result of a calculation."""
+    if fmt != "concept":
+        return None, None
+    kind = "calculation" if str(q.get("kind") or "").strip().lower().startswith("calc") else "conceptual"
+    final = str(q.get("final_answer") or "").strip() or None
+    return kind, final if kind == "calculation" else None
 
 
 def make_plan(counts: Optional[dict] = None, types: Optional[list[str]] = None,
@@ -110,7 +121,9 @@ def generate_questions(course: str, lecture: Optional[int], types: Optional[list
 
     text, _ = chat_with_fallback(build_question_messages(chunks, [f for f, _ in plan], difficulty, topic, style),
                                  provider=resolve_provider_name(provider), temperature=0.5,
-                                 max_tokens=500 + 250 * len(plan), json_mode=True)
+                                 max_tokens=500 + 250 * len(plan)
+                                 + CONCEPT_EXTRA_TOKENS * sum(1 for f, _ in plan if f == "concept"),
+                                 json_mode=True)
     raw = parse_json(text).get("questions", [])
 
     # check each item against the format it says it has (falls back to its position), so a model
@@ -127,10 +140,12 @@ def generate_questions(course: str, lecture: Optional[int], types: Optional[list
         src = q.get("source_index")
         meta = chunks[src - 1]["metadata"] if isinstance(src, int) and 1 <= src <= len(chunks) \
             else chunks[0]["metadata"]
+        kind, final_answer = _concept_fields(q, fmt)
         out.append({"id": uuid.uuid4().hex[:8], "type": label[fmt], "difficulty": difficulty,
                     "question": q["question"], "options": q.get("options") if fmt == "mcq" else None,
                     "correct_answer": q["correct_answer"],
-                    "explanation": q.get("explanation", ""), "source": format_location(meta)})
+                    "explanation": q.get("explanation", ""), "source": format_location(meta),
+                    "kind": kind, "final_answer": final_answer})
         ref = q.get("similar_to")
         if examples and isinstance(ref, int) and 1 <= ref <= len(examples):
             ex = examples[ref - 1]
