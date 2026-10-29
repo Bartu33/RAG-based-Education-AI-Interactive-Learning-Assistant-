@@ -10,6 +10,9 @@ from __future__ import annotations
 import re
 
 _CMD = re.compile(r"\\[A-Za-z]+|\\[{}|,;:!]|[\^_]\{")
+# LaTeX spacing (\, \; \: \!): a plain space is just as readable, and a backslash lost on the way
+# would turn "a\,y_1" into "a, y_1", which reads as a list instead of a product
+_SPACING = re.compile(r"(?<!\\)\\[,;:!]")
 _PROSE = re.compile(r"[A-Za-zÇĞİÖŞÜçğıöşü]{3,}[.,:;!?]*")
 _JOIN_WORDS = {"ve", "ile", "ise", "ya", "da", "de", "mi", "and", "or", "is", "of", "the", "for", "so",
                "to", "in", "at", "if"}
@@ -25,6 +28,10 @@ def _is_prose(tok: str) -> bool:
 
 def fix_line(text: str) -> str:
     """One whiteboard line with every formula inside $...$ (inline), prose left as text."""
+    return _SPACING.sub(" ", _fix_line(text))
+
+
+def _fix_line(text: str) -> str:
     s = (text or "").strip()
     if not s:
         return s

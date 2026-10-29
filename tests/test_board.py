@@ -70,7 +70,10 @@ class Store:
     ("A 1 Gb/s link shared by users of 100 Mbps, how many users?", True),
     ("Paket anahtarlama nedir?", False), ("What is a protocol?", False),
     ("Olasılık nedir?", False), ("What is the time complexity of binary search?", False),
-    ("2 sınıfta kaç öğrenci var?", False)])
+    ("2 sınıfta kaç öğrenci var?", False),
+    ("Is the system y[n] = x[n] + 2·x[n−1] linear? Show step by step.", True),
+    ("Explain the step-by-step derivation of the unit step response", True),
+    ("Explain the unit step sequence", False)])
 def test_whiteboard_only_for_working_out(q, expected):
     assert board.is_math_question(q) is expected
 
@@ -235,7 +238,7 @@ def test_whiteboard_formulas_are_delimited(uploads, monkeypatch):
                         "result": "\\(y(n)=\\{2\\}\\)", "check": "Same length.", "closing": "Done."})
     monkeypatch.setattr(board, "chat_with_fallback", lambda *a, **k: (reply, "groq"))
     wb = board.whiteboard("Calculate the product", SOURCES)
-    assert wb["steps"][0]["write"] == "$x1(n)\\,x2(n)=\\{1\\times2\\}$"
+    assert wb["steps"][0]["write"] == "$x1(n) x2(n)=\\{1\\times2\\}$"   # LaTeX spacing -> plain space
     assert wb["given"] == ["$x1(n)=\\{1,-3\\}$"] and wb["result"] == "$y(n)=\\{2\\}$"
     assert wb["check"] == "Same length." and wb["find"] == "y(n)"
 

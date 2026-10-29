@@ -54,7 +54,7 @@ _SOLVE_WORDS = re.compile(
     r"(hesapla\w*|çöz\w*|coz\w*|türet\w*|turet\w*|ispatla\w*|ispat et\w*|kanıtla\w*|kanitla\w*|"
     r"sadeleştir\w*|integralini|türevini|limitini|"
     r"\bsolve\b|\bcalculate\b|\bcompute\b|\bderive\b|\bprove\b|\bevaluate\b|\bsimplify\b|"
-    r"\bwork out\b|\bfind the value\b)", re.IGNORECASE)
+    r"\bwork out\b|\bfind the value\b|\bstep[ -]by[ -]step\b)", re.IGNORECASE)
 _EXPRESSION = re.compile(r"\d\s*[\+\-\*/\^×÷=]\s*\(?\s*[\dA-Za-z]|[∑∫√≤≥≠∞]|\\frac|\\sum|\\int|\$[^$]+\$")
 _QUANTITY = re.compile(
     r"\d+(?:[.,]\d+)?\s*(?:[kKMG]?b/s|m/s²?|km/h|km|kg|g|m|cm|mm|s|ms|µs|ns|N|J|W|kW|V|A|Ω|Hz|kHz|MHz|GHz|"
@@ -312,7 +312,8 @@ WHITEBOARD_SYSTEM = (
     "'\\times'); no LaTeX in 'say'.\n"
     "Formatting rules for everything written on the board ('given', 'find', 'write', 'result'): EVERY "
     "formula, number with an operator, symbol or set goes inside $...$ (e.g. '$x(n)=\\{1,2\\}$', "
-    "'$d = \\frac{L}{R}$'); never write bare LaTeX outside $...$; no $$; keep each line short enough "
+    "'$d = \\frac{L}{R}$'); never write bare LaTeX outside $...$; no $$; write a product as 'a y_1[n]' "
+    "or 'a \\cdot y_1[n]', never with a comma or LaTeX spacing commands; keep each line short enough "
     "for one board line and split a long computation over several steps.\n"
     "Write and speak in the language of the student's question. Respond with JSON only: "
     '{"title":"...","given":["..."],"find":"...","steps":[{"write":"...","say":"..."}],'

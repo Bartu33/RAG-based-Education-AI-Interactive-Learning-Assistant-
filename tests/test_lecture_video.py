@@ -122,13 +122,23 @@ def test_frames_have_video_size(env):
 def test_formulas_without_dollars_are_drawn_as_math():
     from backend.media.mathfmt import fix_line, for_mathtext
     raw = "x1(n)\\,x2(n)=\\{1\\times2,\\,-3\\times(-1)\\}"
-    assert fix_line(raw) == "$" + raw + "$"
+    assert fix_line(raw) == "$" + raw.replace("\\,", " ") + "$"   # LaTeX spacing becomes a plain space
     assert fix_line("Toplam: \\frac{a}{b} olur") == "Toplam: $\\frac{a}{b}$ olur"
     assert fix_line("\\(|z| = 5\\)") == "$|z| = 5$" and fix_line("x(n) = {1, 2}") == "x(n) = {1, 2}"
     assert for_mathtext("$\\boxed{y = 5\\text{ m}}$") == "$y = 5\\mathrm{\\ m}$"
     plain = lv._formula_image("plain words", 30)
     math = lv._formula_image(raw, 30)
     assert math.width < lv._formula_image(raw.replace("\\", "\\\\"), 30).width or math.height > plain.height
+
+
+def test_latex_spacing_never_shows_as_a_comma():
+    from backend.media.mathfmt import fix_line, for_mathtext
+    line = "$a\\, y_1[n] + b\\;y_2[n] = a\\,x_1[n]$"
+    assert fix_line(line) == "$a  y_1[n] + b y_2[n] = a x_1[n]$"
+    assert "\\," not in for_mathtext(line)
+    assert fix_line("a\\,y_1[n] + b\\,y_2[n]") == "$a y_1[n] + b y_2[n]$"   # bare LaTeX too
+    assert fix_line("$a, b \\in R$") == "$a, b \\in R$"                    # a real comma stays
+    assert fix_line("$\\{1, 2\\}$") == "$\\{1, 2\\}$"                   # braces are not spacing
 
 
 def test_page_video_with_lecture_recording_in_corner(env):

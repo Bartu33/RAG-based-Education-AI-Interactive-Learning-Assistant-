@@ -396,9 +396,16 @@ def _whiteboard_scene(c: _Canvas, scene: dict, board: dict, has_pip: bool, pip_t
     c.d.rounded_rectangle(c.box(x0, y0, x1, y1), radius=c.s(16), fill=BOARD_BG, outline=(214, 214, 207),
                           width=c.s(3))
     y = y0 + 16
-    if wb.get("title"):
-        c.text(x0 + 28, y, c.wrap(wb["title"], 28, x1 - x0 - 56, 1, True)[0], 28, BOARD_TITLE, bold=True)
-        y += 50
+    if wb.get("title"):   # the LLM writes formulas as $...$: show them as symbols
+        title, size = plain_sentence(wb["title"]), 28
+        lines = c.wrap(title, size, x1 - x0 - 56, 1, True)
+        if lines and lines[0].endswith("…"):   # too long for one line: two smaller lines, not cut
+            size = 25
+            lines = c.wrap(title, size, x1 - x0 - 56, 2, True)
+        for ln in lines:
+            c.text(x0 + 28, y, ln, size, BOARD_TITLE, bold=True)
+            y += size + 10
+        y += 12
     steps = [s if isinstance(s, dict) else {"write": str(s)} for s in wb["steps"]][:scene["steps_shown"]]
     rows = [(f"{i}.", s["write"]) for i, s in enumerate(steps, 1)]
     show_result = scene.get("final") and wb.get("result")

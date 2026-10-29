@@ -6,6 +6,30 @@ from core import board
 from core.state import course_picker, feedback_widget, label_for, mmss
 styles.kicker("CONTEXT-GROUNDED Q&A"); st.title("💬 Q&A")
 
+# This page uses the full width: the content starts where the question box starts (right of
+# Clear chat) and ends left of the lecture video that plays in the bottom-right corner
+# (core/board.py: 340 px wide, 24 px from the edge), so neither of them covers an answer.
+QA_LAYOUT = """
+<style>
+:root{ --qa-side:1.5rem; --qa-clear:170px; --qa-gap:1rem; --qa-video:calc(340px + 24px + 1rem); }
+@media (max-width: 1100px){ :root{ --qa-clear:120px; --qa-video:1.5rem; } }
+.block-container{ max-width:none !important; padding-right:var(--qa-video) !important;
+  padding-left:calc(var(--qa-side) + var(--qa-clear) + var(--qa-gap)) !important; }
+[data-testid="stBottomBlockContainer"]{ max-width:none !important; padding-left:var(--qa-side) !important;
+  padding-right:var(--qa-video) !important; }
+.st-key-qa_bottom [data-testid="stHorizontalBlock"]{ gap:var(--qa-gap) !important; }
+.st-key-qa_bottom [data-testid="stColumn"]:first-child{ flex:0 0 var(--qa-clear) !important;
+  width:var(--qa-clear) !important; min-width:0 !important; }
+.st-key-qa_bottom [data-testid="stColumn"]:last-child{ flex:1 1 auto !important; width:auto !important; }
+</style>
+"""
+st.markdown(QA_LAYOUT, unsafe_allow_html=True)
+
+def clear_chat():
+    st.session_state.chat = []
+    st.session_state.board_focus = None   # also stops the video playing in the corner
+
+
 course, lecture = course_picker("qa")
 t1, t2, t3 = st.columns(3)
 watching = t1.toggle("🎬 I'm watching the lecture video")
@@ -59,7 +83,12 @@ for m in st.session_state.chat:
     with st.chat_message(m["role"]):
         if m["role"] == "user": st.markdown(m["content"])
         else: render(m)
-if q := st.chat_input("Ask a question about the course…"):
+with st.bottom, st.container(key="qa_bottom"):   # pinned to the bottom: Clear chat left of the question box
+    b1, b2 = st.columns([1, 6], vertical_alignment="center")
+    b1.button("🗑️ Clear chat", on_click=clear_chat, disabled=not st.session_state.chat,
+              width="stretch", help="Delete all questions and answers of this chat")
+    q = b2.chat_input("Ask a question about the course…")
+if q:
     with st.chat_message("user"): st.markdown(q)
     with st.chat_message("assistant"):
         try:
@@ -81,5 +110,3 @@ if q := st.chat_input("Ask a question about the course…"):
             if (r.get("board") or {}).get("video"):
                 st.session_state.board_focus = mid   # the newest video answer plays in the corner
             st.rerun()  # drawn by the loop above, so its feedback buttons keep a stable key
-if st.session_state.chat and st.sidebar.button("Clear chat"):
-    st.session_state.chat = []; st.session_state.board_focus = None; st.rerun()
