@@ -103,7 +103,9 @@ video:                        # explanation video generated from the teaching bo
     tr: tr_TR-dfki-medium      # the only Turkish voice in rhasspy/piper-voices
     en: en_US-lessac-medium
   voices_dir: data/models/piper  # or run: python scripts/download_voices.py
-  voice_speed: 0.92           # 1.0 = Piper default; a bit slower is clearer for a lecture
+  voice_speed:
+    tr: 0.9
+    en: 0.95          # 1.0 = Piper default; a bit slower is clearer for a lecture
   voice_base_url: null        # another mirror of rhasspy/piper-voices if huggingface.co is blocked
   pip: true                   # matching part of the original lecture recording in the corner
   pip_width: 384              # in 1280-wide units (scaled with the video)
