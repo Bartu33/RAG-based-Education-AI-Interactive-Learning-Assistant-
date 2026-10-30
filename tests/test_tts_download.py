@@ -92,3 +92,16 @@ def test_unknown_voice_fails_at_once(voices, monkeypatch):
     with pytest.raises(RuntimeError, match="does not exist"):
         tts._fetch("https://h/z.onnx", voices / "z.onnx")
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize("setting,language,expected", [
+    (0.92, "tr", 0.92),                          # one speed for every voice
+    ({"tr": 0.9, "en": 0.95}, "tr", 0.9),        # one per language (config.yaml)
+    ({"tr": 0.9, "en": 0.95}, "en", 0.95),
+    ({"tr": 0.9, "en": 0.95}, "de", 0.95),       # no entry: the English one
+    (None, "tr", 0.92), ("fast", "tr", 0.92),    # unusable value: the default
+    (9, "en", 2.0),                              # kept within 0.5-2.0
+])
+def test_voice_speed_per_language(monkeypatch, setting, language, expected):
+    monkeypatch.setattr(tts, "video_cfg", lambda: {} if setting is None else {"voice_speed": setting})
+    assert tts.voice_speed(language) == expected

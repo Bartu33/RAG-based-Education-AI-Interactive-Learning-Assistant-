@@ -119,12 +119,23 @@ def _voice(name: str):
     return PiperVoice.load(str(model))
 
 
-def _syn_config():
-    """Speaking speed (video.voice_speed: 1.0 = Piper default, 0.9 = a bit slower / clearer)."""
-    speed = float(video_cfg().get("voice_speed", 0.92))
+def voice_speed(language: str) -> float:
+    """video.voice_speed: one number for every voice, or one per language ({tr: 0.9, en: 0.95}).
+    1.0 = Piper default, 0.9 = a bit slower / clearer."""
+    speed = video_cfg().get("voice_speed", 0.92)
+    if isinstance(speed, dict):
+        speed = speed.get(language, speed.get("en", 0.92))
+    try:
+        return max(0.5, min(float(speed), 2.0))
+    except (TypeError, ValueError):
+        return 0.92
+
+
+def _syn_config(language: str = "en"):
+    speed = voice_speed(language)
     try:
         from piper import SynthesisConfig
-        return SynthesisConfig(length_scale=1.0 / max(0.5, min(speed, 2.0)))
+        return SynthesisConfig(length_scale=1.0 / speed)
     except Exception:  # noqa: BLE001  (older piper-tts)
         return None
 
@@ -134,7 +145,7 @@ def synthesize(text: str, language: str, out_path: Path, pause_s: float = 0.0) -
     `pause_s` of silence is added at the end (a breath between two steps)."""
     voice = _voice(voice_name(language))
     out_path = Path(out_path)
-    cfg = _syn_config()
+    cfg = _syn_config(language)
     with _LOCK, wave.open(str(out_path), "wb") as wf:
         if cfg is not None:
             voice.synthesize_wav(text, wf, syn_config=cfg)
