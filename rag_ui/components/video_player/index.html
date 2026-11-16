@@ -8,11 +8,13 @@
      chat is open: clicking it sends "expand" and the page swaps the two back. The page keeps this
      component in the same place in both modes, so the video is never reloaded and keeps playing. -->
 <style>
+  /* colours follow the Streamlit theme (set from the render event below) */
+  :root { --accent: #1865F2; --text: #21242C; --muted: #5F6B7A; }
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden;
-               font-family: "Source Sans Pro", system-ui, sans-serif; color: #e6edf3; }
+               font-family: "Source Sans Pro", system-ui, sans-serif; color: var(--text); }
   #wrap { position: relative; border-radius: 12px; overflow: hidden; background: #000; }
   video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
-  #mini { display: none; position: absolute; inset: 0; cursor: pointer;
+  #mini { display: none; position: absolute; inset: 0; cursor: pointer; color: #fff;
           background: linear-gradient(180deg, rgba(0,0,0,.55) 0, rgba(0,0,0,0) 38%); }
   #mini .head { position: absolute; top: 8px; left: 10px; right: 10px; font-size: 13px; font-weight: 700;
                 display: flex; justify-content: space-between; gap: 8px; }
@@ -22,12 +24,12 @@
   #mini .time { position: absolute; right: 10px; bottom: 12px; font-size: 12px; background: rgba(0,0,0,.6);
                 padding: 1px 6px; border-radius: 6px; }
   body.mini #mini { display: block; }
-  body.mini #wrap { border: 2px solid #2dd4bf; box-shadow: 0 8px 28px rgba(0,0,0,.55); }
+  body.mini #wrap { border: 2px solid var(--accent); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
   #ask { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  #ask button { border: 1px solid rgba(45,212,191,.6); background: rgba(45,212,191,.12); color: #e6edf3;
-                border-radius: 8px; padding: 6px 12px; font-size: 14px; cursor: pointer; }
-  #ask button:hover { background: rgba(45,212,191,.25); }
-  #ask small { color: #8b98a5; }
+  #ask button { border: 0; background: var(--accent); color: #fff; font-weight: 700;
+                border-radius: 10px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+  #ask button:hover { filter: brightness(.92); }
+  #ask small { color: var(--muted); }
   body.mini #ask { display: none; }
 </style>
 </head>
@@ -80,7 +82,15 @@
 
   window.addEventListener("message", ev => {
     if (!ev.data || ev.data.type !== "streamlit:render") return;
-    const a = ev.data.args;
+    const a = ev.data.args, th = ev.data.theme;
+    if (th) {
+      const root = document.documentElement.style;
+      if (th.primaryColor) root.setProperty("--accent", th.primaryColor);
+      if (th.textColor) {
+        root.setProperty("--text", th.textColor);
+        if (/^#[0-9a-f]{6}$/i.test(th.textColor)) root.setProperty("--muted", th.textColor + "aa");
+      }
+    }
     if (a.url !== src) {           // a new video (not a mode change): load it
       src = a.url; startApplied = false; lastSeek = a.seek ? a.seek.n : null;
       v.src = a.url;

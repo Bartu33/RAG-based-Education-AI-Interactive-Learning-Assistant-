@@ -17,7 +17,7 @@ from core.board import fix_markdown
 from core.state import BeyondStream, cached_courses, cached_documents, invalidate, mmss, safe, split_beyond
 from core.video_player import moment, player
 
-styles.kicker("STUDY MODE"); st.title("🧠 Interactive Learning")
+styles.kicker("STUDY MODE"); st.title(":material/menu_book: Interactive Learning")
 # this page shows a document and a chat side by side, so it may use more of the screen
 st.markdown("<style>.block-container{max-width:1500px !important;}</style>", unsafe_allow_html=True)
 
@@ -358,7 +358,7 @@ if panel is not None:
                                 'answer fast. Ask me anything about it, or use a button above.</div>',
                                 unsafe_allow_html=True)
                 for i, m in enumerate(chat):
-                    with st.chat_message(m["role"], avatar=BOT_AVATAR if m["role"] == "assistant" else "🧑‍🎓"):
+                    with st.chat_message(m["role"], avatar=BOT_AVATAR if m["role"] == "assistant" else None):
                         st.markdown(fix_markdown(m["content"]) if m["role"] == "assistant" else m["content"])
                         if m["role"] == "assistant":
                             if m.get("beyond"):
@@ -380,7 +380,7 @@ if panel is not None:
                         **current_location()}
                 meta: dict = {}
                 with box:
-                    with st.chat_message("user", avatar="🧑‍🎓"):
+                    with st.chat_message("user"):   # default avatar: styled as the student's bubble
                         st.markdown(shown)
                     with st.chat_message("assistant", avatar=BOT_AVATAR):
                         t0 = perf_counter()

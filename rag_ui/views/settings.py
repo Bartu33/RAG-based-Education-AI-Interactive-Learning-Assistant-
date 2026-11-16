@@ -4,7 +4,7 @@ from core.state import PRESETS, PROVIDERS, backend_config, backend_defaults, pre
 c = st.session_state.cfg
 head, switch = st.columns([3, 1], vertical_alignment="bottom")
 with head:
-    styles.kicker("CONFIGURATION"); st.title("⚙️ Settings")
+    styles.kicker("CONFIGURATION"); st.title(":material/settings: Settings")
 view = switch.segmented_control("View", ["General", "Advanced"], default="General", required=True,
                                 key="settings_view", label_visibility="collapsed")
 

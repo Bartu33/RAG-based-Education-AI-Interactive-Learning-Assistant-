@@ -4,7 +4,7 @@ from core import styles
 from core import api_client as api
 from core import board
 from core.state import course_picker, feedback_widget, label_for, mmss
-styles.kicker("CONTEXT-GROUNDED Q&A"); st.title("💬 Q&A")
+styles.kicker("CONTEXT-GROUNDED Q&A"); st.title(":material/forum: Q&A")
 
 # This page uses the full width: the content starts where the question box starts (right of
 # Clear chat) and ends left of the lecture video that plays in the bottom-right corner
@@ -85,7 +85,7 @@ for m in st.session_state.chat:
         else: render(m)
 with st.bottom, st.container(key="qa_bottom"):   # pinned to the bottom: Clear chat left of the question box
     b1, b2 = st.columns([1, 6], vertical_alignment="center")
-    b1.button("🗑️ Clear chat", on_click=clear_chat, disabled=not st.session_state.chat,
+    b1.button("Clear chat", on_click=clear_chat, disabled=not st.session_state.chat, icon=":material/delete_sweep:",
               width="stretch", help="Delete all questions and answers of this chat")
     q = b2.chat_input("Ask a question about the course…")
 if q:

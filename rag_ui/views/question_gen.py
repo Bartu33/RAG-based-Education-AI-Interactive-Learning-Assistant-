@@ -1,9 +1,9 @@
-import json, uuid, streamlit as st
+import html, json, uuid, streamlit as st
 from core import styles
 from core.board import fix_markdown
 from core import api_client as api
 from core.state import QTYPES, course_picker, is_choice, record_attempt, render_evaluation, safe, token
-styles.kicker("QUESTION GENERATION"); st.title("📝 Question Generation")
+styles.kicker("QUESTION GENERATION"); st.title(":material/quiz: Question Generation")
 MAX_PER_TYPE, MAX_TOTAL = 10, 20   # same limits as backend/tasks/question_gen.py
 FMT_OF = dict(zip(QTYPES, ("mcq", "tf", "short", "concept")))
 
@@ -61,7 +61,7 @@ def past_exams(course):
     return exams
 
 
-with st.container(border=True):
+with st.container(border=True, key="qg_setup"):
     course, lecture = course_picker("qg")
     exams = past_exams(course)
     c1, c2 = st.columns(2)
@@ -128,7 +128,31 @@ if qs:
         avg = f", average {sum(open_scores) / len(open_scores):.0f}/100" if open_scores else ""
         parts.append(f"Open questions: {len(open_scores)} of {len(qs) - len(choice_qs)} graded{avg}")
     top[0].caption(" · ".join(parts))
+    answered = sum(1 for q in qs if q["id"] in checked or q["id"] in graded)
+    good = sum(1 for q in qs if checked.get(q["id"], {}).get("correct")
+               or graded.get(q["id"], {}).get("total", 0) >= 70)
+    st.markdown(f'<div class="quiz-progress"><div class="bar"><div style="width:{100 * answered / len(qs):.0f}%">'
+                f'</div></div><div class="t">{answered} / {len(qs)}</div></div>', unsafe_allow_html=True)
+    if answered == len(qs):
+        st.markdown(f'<div class="quiz-done"><div class="big">Test complete! {good} of {len(qs)} right</div>'
+                    'Your answers are saved in My Results.</div>', unsafe_allow_html=True)
+        celebrated = st.session_state.setdefault("celebrated", set())
+        if good >= 0.8 * len(qs) and qs[0]["id"] not in celebrated:
+            celebrated.add(qs[0]["id"])   # once per test
+            st.balloons()
     top[1].download_button("⬇️ Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json")
+
+
+def mark_tiles(qid: str, labels: list, pick, right, correct: bool) -> None:
+    """After Check: the chosen tile turns green or red and the right one green (display only)."""
+    rules = []
+    for n, label in enumerate(labels, 1):
+        tile = f".st-key-qcard_{qid} [role='radiogroup'] > div:nth-child({n}) > label"
+        if label == right:
+            rules.append(f"{tile}{{border-color:#58CC02 !important; background:#E9F8DC !important; box-shadow:0 3px 0 #58A700 !important;}}")
+        elif label == pick and not correct:
+            rules.append(f"{tile}{{border-color:#E5484D !important; background:#FDECEC !important; box-shadow:0 3px 0 #C2373B !important;}}")
+    st.markdown("<style>" + "".join(rules) + "</style>", unsafe_allow_html=True)
 
 
 def explanation(q):
@@ -136,9 +160,11 @@ def explanation(q):
 
 
 for i, q in enumerate(qs, 1):
-    with st.container(border=True):
-        st.markdown(f'<span class="pill">{q["type"]}</span><span class="pill">{q["difficulty"]}</span>', unsafe_allow_html=True)
-        st.markdown(f"**{i}.** " + fix_markdown(q["question"]))
+    with st.container(key=f"qcard_{q['id']}"):
+        st.markdown(f'<div class="q-head"><span class="q-num">{i}</span><span class="pill">{q["type"]}</span>'
+                    f'<span class="pill">{q["difficulty"]}</span></div>', unsafe_allow_html=True)
+        text = fix_markdown(q["question"])   # a displayed formula cannot sit inside a heading
+        st.markdown(text if "$$" in text else f"##### {text}")
         if q.get("style_ref"):
             st.caption(f"🧾 In the style of {q['style_ref']}")
         if is_choice(q):
@@ -156,12 +182,15 @@ for i, q in enumerate(qs, 1):
                     record_attempt(q, pick, is_correct=correct)
                     st.rerun()
             else:
+                key = str(q["correct_answer"]).strip().lower()
+                right = next((l for o, l in zip(options, labels) if o.strip().lower() == key), q["correct_answer"])
+                mark_tiles(q["id"], labels, pick, right, done["correct"])
                 if done["correct"]:
-                    st.success("✅ Correct")
+                    st.markdown('<div class="q-ok"><span class="big">✓ Correct</span>Nicely done!</div>',
+                                unsafe_allow_html=True)
                 else:
-                    key = str(q["correct_answer"]).strip().lower()
-                    right = next((l for o, l in zip(options, labels) if o.strip().lower() == key), q["correct_answer"])
-                    st.error(f"❌ Not quite. The correct answer is **{right}**.")
+                    st.markdown(f'<div class="q-bad"><span class="big">✗ Not quite</span>The correct answer is '
+                                f'<b>{html.escape(str(right))}</b>.</div>', unsafe_allow_html=True)
                 explanation(q)
                 if st.button("Try again", key=f"retry_{q['id']}"):
                     checked.pop(q["id"]); st.session_state.pop(f"pick_{q['id']}", None); st.rerun()

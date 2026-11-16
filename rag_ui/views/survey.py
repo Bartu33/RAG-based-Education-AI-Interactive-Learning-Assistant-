@@ -2,7 +2,7 @@ import streamlit as st
 from core import styles
 from core import api_client as api
 from core.state import safe
-styles.kicker("USABILITY & SATISFACTION"); st.title("📋 Feedback")
+styles.kicker("USABILITY & SATISFACTION"); st.title(":material/rate_review: Feedback")
 
 # System Usability Scale (Brooke, 1996): the standard 10 items, "system" = this assistant
 SUS = [

@@ -4,7 +4,7 @@ from core import styles
 from core.board import fix_markdown
 from core import api_client as api
 from core.state import log_out, token
-styles.kicker("PRACTICE HISTORY"); st.title("📒 My Results")
+styles.kicker("PRACTICE HISTORY"); st.title(":material/insights: My Results")
 
 try:
     data = api.history(token())

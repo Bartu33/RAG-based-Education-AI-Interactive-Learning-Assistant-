@@ -2,7 +2,7 @@ import pandas as pd, streamlit as st
 from core import styles
 from core import api_client as api
 from core.state import backend_config, cached_courses, cached_documents, invalidate, mmss, safe
-styles.kicker("RAG PIPELINE"); st.title("📚 Materials")
+styles.kicker("RAG PIPELINE"); st.title(":material/folder_open: Materials")
 cfg = st.session_state.cfg
 NEW = "➕ New course…"
 
