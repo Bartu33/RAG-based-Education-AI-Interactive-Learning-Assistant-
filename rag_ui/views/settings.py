@@ -1,10 +1,11 @@
 import streamlit as st
 from core import benchmark_panel, styles
+from core.ui_components import page_header
 from core.state import PRESETS, PROVIDERS, backend_config, backend_defaults, preset_of, safe
 c = st.session_state.cfg
 head, switch = st.columns([3, 1], vertical_alignment="bottom")
 with head:
-    styles.kicker("CONFIGURATION"); st.title(":material/settings: Settings")
+    page_header("Settings", "Configuration", "Language model, answer quality and grounding thresholds.", "settings")
 view = switch.segmented_control("View", ["General", "Advanced"], default="General", required=True,
                                 key="settings_view", label_visibility="collapsed")
 
@@ -35,7 +36,7 @@ if view == "General":
         p = PRESETS[now]
         chunk = (safe(backend_config) or {}).get("chunk_size", 500)
         tokens = p["top_k_context"] * chunk * (2 if p["score_faithfulness"] else 1)
-        with st.container(border=True):
+        with st.container(border=True, key="card_preset"):
             st.markdown(f"**{INFO[now][0]}**: {INFO[now][1]}")
             st.caption(f"Q&A: {p['top_k_context']} excerpts out of the {p['top_k_candidates']} best matches · "
                        f"grounding check {'on' if p['score_faithfulness'] else 'off'} · "

@@ -1,12 +1,13 @@
 import pandas as pd, streamlit as st
 from core import styles
+from core.ui_components import page_header
 from core import api_client as api
 from core.state import backend_config, cached_courses, cached_documents, invalidate, mmss, safe
-styles.kicker("RAG PIPELINE"); st.title(":material/folder_open: Materials")
+page_header("Materials", "RAG pipeline", "Add slides, PDFs, notes and lecture videos. Everything is processed locally.", "folder_open")
 cfg = st.session_state.cfg
 NEW = "New course…"
 
-with st.container(border=True):
+with st.container(border=True, key="card_upload"):
     known = [c["course"] for c in (safe(cached_courses) or [])]
     c1, c2 = st.columns(2)
     pick = c1.selectbox("Course", known + [NEW])
@@ -23,13 +24,13 @@ with st.container(border=True):
             bar = st.progress(0.0)
             failed = 0
             for i, f in enumerate(files):
-                st.write(f"• {f.name}: extraction → chunking → embedding → ChromaDB")
+                st.write(f"**{f.name}** · extraction → chunking → embedding → ChromaDB")
                 try:
                     r = api.ingest_file(f.name, f.getvalue(), course, int(lecture), f.type or "application/octet-stream")
-                    st.write(f"  ✓ {r['chunks']} chunks")
+                    st.write(f":green[:material/check_circle:] {r['chunks']} chunks")
                 except api.ApiError as exc:
                     failed += 1
-                    st.write(f"  ✗ {exc}")
+                    st.write(f":red[:material/error:] {exc}")
                 bar.progress((i + 1) / len(files))
             invalidate()
             s.update(label="Indexing complete" if not failed else f"Indexing finished with {failed} error(s)",

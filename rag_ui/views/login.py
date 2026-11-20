@@ -1,23 +1,35 @@
 import streamlit as st
 from core import api_client as api
+from core.ui_components import APP_NAME, logo_html
 
 # A full-page sign-in (no sidebar), laid out like Khan Academy's: a light introduction on the left,
 # the log-in / register card on the right, "How it works" below and the brand bar at the bottom.
 st.markdown("""
 <style>
-[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stExpandSidebarButton"]{ display:none !important; }
-.stApp{ background:
-    radial-gradient(620px 420px at 6% 96%, rgba(24,101,242,.10), transparent 70%),
-    radial-gradient(520px 380px at 96% 8%, rgba(124,92,250,.09), transparent 70%),
-    linear-gradient(180deg,#F5F8FF 0%,#FFFFFF 60%) !important; }
-/* the page fills the screen height: sign-in on top, the brand bar at the bottom and "How it works"
-   in between with the same space above and below it (auto margins share the free height) */
-.block-container{ max-width:1480px !important; min-height:100vh; display:flex; flex-direction:column;
-  padding-top:2.6rem !important; padding-bottom:1.6rem !important; }
-.block-container > [data-testid="stVerticalBlock"]{ flex:1 1 auto; }
-.block-container > [data-testid="stVerticalBlock"] > :has(.st-key-lg_how){ margin-top:auto !important; margin-bottom:auto !important; }
+[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"], [data-testid="stExpandSidebarButton"],
+[data-testid="stHeaderLogo"]{ display:none !important; }
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"]{ background:
+    radial-gradient(620px 420px at 6% 96%, rgba(52,81,209,.07), transparent 70%),
+    radial-gradient(520px 380px at 96% 8%, rgba(124,111,224,.07), transparent 70%),
+    linear-gradient(180deg,#F5F7FB 0%,#FFFFFF 70%) !important; }
+/* One screen on a computer: brand bar on top, sign-in in the middle (centred in the free height),
+   "How it works" at the bottom. The block is exactly the window height (padding included), so the
+   page itself never scrolls; shorter windows get a more compact layout (styles.css, section 12). */
+@media (min-width: 901px){
+  .block-container{ max-width:1400px !important; height:100vh; min-height:0 !important; box-sizing:border-box;
+    display:flex; flex-direction:column; padding-top:1.25rem !important; padding-bottom:1.25rem !important; }
+  .block-container > [data-testid="stVerticalBlock"]{ flex:1 1 auto; min-height:0; gap:0 !important; }
+  .block-container > [data-testid="stVerticalBlock"] > :has(.lg-intro){ margin-top:auto !important; margin-bottom:auto !important;
+    padding:.9rem 0; }
+}
 </style>
 """, unsafe_allow_html=True)
+
+# --- brand bar on top (logo + name), then the sign-in, then "How it works" ---
+with st.container(key="lg_top"):
+    st.markdown(f'<div class="lg-top"><div class="lg-bar">{logo_html(32)}<div class="name">{APP_NAME}</div>'
+                '<div class="tag">RAG-based Education AI</div></div>'
+                '<span>Hybrid RAG · answers grounded in approved course material</span></div>', unsafe_allow_html=True)
 
 if st.session_state.get("login_notice"):
     st.warning(st.session_state.login_notice)
@@ -49,7 +61,8 @@ intro.markdown(f"""
 """, unsafe_allow_html=True)
 
 with card, st.container(key="login_box"):
-    st.markdown('<div class="lg-title">Welcome back</div>'
+    st.markdown(f'<div style="margin-bottom:1rem">{logo_html(52, large=True)}</div>'
+                '<div class="lg-title">Welcome back</div>'
                 '<div class="lg-sub">Log in with your student number, or create an account.</div>',
                 unsafe_allow_html=True)
     log_in, sign_up = st.tabs(["Log in", "Register"])
@@ -79,7 +92,7 @@ with card, st.container(key="login_box"):
                         st.error(str(exc))
     st.caption(":material/lock: Passwords are stored only as salted hashes on the institution's server.")
 
-# --- below the sign-in: how it works, then the brand bar ---
+# --- below the sign-in: how it works ---
 STEPS = [("upload_file", "Your instructor adds the material", "Slides, PDFs, notes and lecture recordings are indexed on the institution's server."),
          ("search", "You ask or study", "Every answer is searched in that material and shows the page, slide or minute it is based on."),
          ("task_alt", "You practise and check", "Generated tests are checked on the spot; your results show what to revise.")]
@@ -88,7 +101,3 @@ steps = "".join(f'<div class="lg-step"><div class="n">{n}</div><div class="i"><s
 with st.container(key="lg_how"):
     st.markdown(f'<div class="lg-how"><div class="lg-how-title">How it works</div><div class="lg-steps">{steps}</div></div>',
                 unsafe_allow_html=True)
-with st.container(key="lg_foot"):   # brand bar at the bottom of the page
-    st.markdown('<div class="lg-foot"><div class="lg-bar"><div class="logo">L</div><div class="name">Learning Assistant</div>'
-                '<div class="tag">RAG-based Education AI</div></div>'
-                '<span>Hybrid RAG · answers grounded in approved course material</span></div>', unsafe_allow_html=True)

@@ -13,11 +13,12 @@ import streamlit as st
 
 from core import api_client as api
 from core import styles
+from core.ui_components import page_header
 from core.board import fix_markdown
 from core.state import BeyondStream, cached_courses, cached_documents, invalidate, mmss, safe, split_beyond
 from core.video_player import moment, player
 
-styles.kicker("STUDY MODE"); st.title(":material/menu_book: Interactive Learning")
+page_header("Interactive Learning", "Study mode", "Read a document or watch a lecture with the study buddy at your side.", "menu_book")
 # this page shows a document and a chat side by side, so it may use more of the screen
 st.markdown("<style>.block-container{max-width:none !important;}</style>", unsafe_allow_html=True)
 
@@ -84,7 +85,7 @@ def upload_progress():
                 + (f" / {mmss(total)}" if total else "") + " · you can watch it while this runs")
         c1, c2 = st.columns([4, 1], vertical_alignment="center")
         c1.progress(share, text=text)
-        if job["chunks"] and c2.button("▶ Open", key=f"jobopen_{job_id}", width="stretch"):
+        if job["chunks"] and c2.button("Open", key=f"jobopen_{job_id}", icon=":material/play_arrow:", width="stretch"):
             ss.iv_open = (job["course"], name)   # applied before the pickers are drawn
             st.rerun(scope="app")
 
@@ -265,11 +266,11 @@ if viewer is not None:
             ss[nav] = min(max(1, int(ss[nav])), last)
             unit_word = {"pdf": "Page", "pptx": "Slide", "docx": "Section"}[kind]
             c1, c2, c3, c4 = st.columns([1, 2, 1, 3], vertical_alignment="bottom")
-            c1.button("◀", key=f"prev_{key}", on_click=move, args=(-1,), disabled=ss[nav] <= 1,
-                      width="stretch")
+            c1.button(":material/chevron_left:", key=f"prev_{key}", on_click=move, args=(-1,), disabled=ss[nav] <= 1,
+                      width="stretch", help=f"Previous {unit_word.lower()}")
             c2.number_input(f"{unit_word} (of {last})", 1, last, key=nav)
-            c3.button("▶", key=f"next_{key}", on_click=move, args=(1,), disabled=ss[nav] >= last,
-                      width="stretch")
+            c3.button(":material/chevron_right:", key=f"next_{key}", on_click=move, args=(1,), disabled=ss[nav] >= last,
+                      width="stretch", help=f"Next {unit_word.lower()}")
             text_view = c4.toggle("Text view", key=f"txt_{key}", value=not pdf_pages,
                                   disabled=not pdf_pages,
                                   help="Show the indexed text instead of the page image")
@@ -319,10 +320,11 @@ def render_sources(m: dict, idx: int):
     with st.expander(f"{len(srcs)} excerpt{'s' if len(srcs) != 1 else ''} used", icon=":material/attach_file:"):
         for s in srcs:
             a, b = st.columns([4, 1], vertical_alignment="center")
-            a.markdown(f"**[{s['n']}] {s['label']}**")
+            a.markdown(f'<div class="ex-head"><span class="n">{html.escape(str(s["n"]))}</span>'
+                       f'{html.escape(str(s["label"]))}</div>', unsafe_allow_html=True)
             a.caption(s["text"][:220] + ("…" if len(s["text"]) > 220 else ""))
             b.button("Go", key=f"go_{key}_{idx}_{s['n']}", on_click=go_to, args=(s,),
-                     help="Show this part in the viewer")
+                     icon=":material/arrow_outward:", help="Show this part in the viewer")
 
 
 if panel is not None:
@@ -354,9 +356,10 @@ if panel is not None:
             box = st.container(height=520, border=False, key="buddy_msgs", autoscroll=True)
             with box:
                 if not chat:
-                    st.markdown('<div class="buddy-empty">Hi! I only read <b>this</b> document, so I '
-                                'answer fast. Ask me anything about it, or use a button above.</div>',
-                                unsafe_allow_html=True)
+                    st.markdown('<div class="buddy-empty"><span class="mi">waving_hand</span><div>'
+                                '<div class="be-t">Hi! I only read this document.</div>'
+                                '<div class="be-d">So I answer fast. Ask me anything about it, or use one '
+                                'of the buttons above.</div></div></div>', unsafe_allow_html=True)
                 for i, m in enumerate(chat):
                     with st.chat_message(m["role"], avatar=BOT_AVATAR if m["role"] == "assistant" else None):
                         st.markdown(fix_markdown(m["content"]) if m["role"] == "assistant" else m["content"])

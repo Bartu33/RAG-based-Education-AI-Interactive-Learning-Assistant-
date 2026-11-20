@@ -1,10 +1,11 @@
 from datetime import datetime
 import pandas as pd, streamlit as st
 from core import styles
+from core.ui_components import page_header
 from core.board import fix_markdown
 from core import api_client as api
 from core.state import log_out, token
-styles.kicker("PRACTICE HISTORY"); st.title(":material/insights: My Results")
+page_header("My Results", "Practice history", "Every test you took, with your answers, the correct ones and the feedback.", "insights")
 
 try:
     data = api.history(token())
@@ -34,13 +35,13 @@ def results_line(s: dict) -> str:
 
 
 # --- overall ---
-m = st.columns(3)
-m[0].metric("Tests", total["tests"], f"{total['answered']} of {total['questions']} questions answered", delta_color="off")
+m = st.container(key="results_summary").columns(3)   # keyed only for styling (styles.css)
+m[0].metric(":material/assignment: Tests", total["tests"], f"{total['answered']} of {total['questions']} questions answered", delta_color="off")
 c = total["choice"]
-m[1].metric("Choice accuracy", f"{100 * c['correct'] / c['count']:.0f}%" if c["count"] else "—",
+m[1].metric(":material/task_alt: Choice accuracy", f"{100 * c['correct'] / c['count']:.0f}%" if c["count"] else "—",
             f"{c['correct']} of {c['count']} correct" if c["count"] else None, delta_color="off")
 o = total["open"]
-m[2].metric("Open questions (avg)", f"{o['average']:.0f}/100" if o["average"] is not None else "—",
+m[2].metric(":material/rate_review: Open questions (avg)", f"{o['average']:.0f}/100" if o["average"] is not None else "—",
             f"{o['count']} graded" if o["count"] else None, delta_color="off")
 courses = sorted({t["course"] for t in tests})
 course = st.selectbox("Course", ["All courses"] + courses) if len(courses) > 1 else "All courses"

@@ -1,9 +1,10 @@
 import html, json, uuid, streamlit as st
 from core import styles
+from core.ui_components import empty_state, page_header
 from core.board import fix_markdown
 from core import api_client as api
 from core.state import QTYPES, course_picker, is_choice, record_attempt, render_evaluation, safe, token
-styles.kicker("QUESTION GENERATION"); st.title(":material/quiz: Question Generation")
+page_header("Question Generation", "Practice", "Practice tests generated from your course material, checked on the spot.", "quiz")
 MAX_PER_TYPE, MAX_TOTAL = 10, 20   # same limits as backend/tasks/question_gen.py
 FMT_OF = dict(zip(QTYPES, ("mcq", "tf", "short", "concept")))
 
@@ -30,7 +31,7 @@ def past_exams(course):
                    "topics come up. Then choose **Like the past exams** below. Exams are only style examples: "
                    "answers still come from the course material, and Q&A never cites them.")
         for e in exams:
-            with st.container(border=True):
+            with st.container(border=True, key=f"card_exam_{e['id']}"):
                 h1, h2 = st.columns([5, 1])
                 h1.markdown(f"**{e['name']}** · {len(e['questions'])} questions · uploaded {e['created'][:10]}")
                 if h2.button("Remove", key=f"del_exam_{e['id']}"):
@@ -131,11 +132,13 @@ if qs:
     answered = sum(1 for q in qs if q["id"] in checked or q["id"] in graded)
     good = sum(1 for q in qs if checked.get(q["id"], {}).get("correct")
                or graded.get(q["id"], {}).get("total", 0) >= 70)
-    st.markdown(f'<div class="quiz-progress"><div class="bar"><div style="width:{100 * answered / len(qs):.0f}%">'
-                f'</div></div><div class="t">{answered} / {len(qs)}</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="quiz-progress{" done" if answered == len(qs) else ""}"><div class="bar">'
+                f'<div style="width:{100 * answered / len(qs):.0f}%"></div></div>'
+                f'<div class="t">{answered} / {len(qs)} answered</div></div>', unsafe_allow_html=True)
     if answered == len(qs):
-        st.markdown(f'<div class="quiz-done"><div class="big">Test complete! {good} of {len(qs)} right</div>'
-                    'Your answers are saved in My Results.</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="quiz-done"><span class="mi">task_alt</span><div><div class="big">Test complete: '
+                    f'{good} of {len(qs)} right</div>Your answers are saved in My Results.</div></div>',
+                    unsafe_allow_html=True)
         celebrated = st.session_state.setdefault("celebrated", set())
         if good >= 0.8 * len(qs) and qs[0]["id"] not in celebrated:
             celebrated.add(qs[0]["id"])   # once per test
@@ -149,9 +152,11 @@ def mark_tiles(qid: str, labels: list, pick, right, correct: bool) -> None:
     for n, label in enumerate(labels, 1):
         tile = f".st-key-qcard_{qid} [role='radiogroup'] > div:nth-child({n}) > label"
         if label == right:
-            rules.append(f"{tile}{{border-color:#58CC02 !important; background:#E9F8DC !important; box-shadow:0 3px 0 #58A700 !important;}}")
+            rules.append(f"{tile}{{border-color:#15803D !important; background:#ECFDF3 !important; box-shadow:0 0 0 1px #15803D !important;}}"
+                         f"{tile}::after{{content:'check_circle'; color:#15803D;}}")
         elif label == pick and not correct:
-            rules.append(f"{tile}{{border-color:#E5484D !important; background:#FDECEC !important; box-shadow:0 3px 0 #C2373B !important;}}")
+            rules.append(f"{tile}{{border-color:#DC2626 !important; background:#FEF2F2 !important; box-shadow:0 0 0 1px #DC2626 !important;}}"
+                         f"{tile}::after{{content:'cancel'; color:#DC2626;}}")
     st.markdown("<style>" + "".join(rules) + "</style>", unsafe_allow_html=True)
 
 
@@ -219,4 +224,6 @@ for i, q in enumerate(qs, 1):
                 if st.button("Try again", key=f"retry_{q['id']}"):
                     graded.pop(q["id"]); st.session_state.pop(f"txt_{q['id']}", None); st.rerun()
 if not qs:
-    st.info("No questions generated yet.")
+    empty_state("No questions yet", "Pick a course, choose how many questions of each type you want and press "
+                "<b>Generate questions</b>. Choice questions are checked on the spot; open answers are scored "
+                "with the four-part rubric.", icon="quiz")

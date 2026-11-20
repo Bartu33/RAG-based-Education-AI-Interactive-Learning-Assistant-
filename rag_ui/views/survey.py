@@ -1,8 +1,9 @@
 import streamlit as st
 from core import styles
+from core.ui_components import page_header
 from core import api_client as api
 from core.state import safe
-styles.kicker("USABILITY & SATISFACTION"); st.title(":material/rate_review: Feedback")
+page_header("Feedback", "Usability & satisfaction", "Ten short statements about the assistant. It takes about two minutes.", "rate_review")
 
 # System Usability Scale (Brooke, 1996): the standard 10 items, "system" = this assistant
 SUS = [
@@ -19,7 +20,7 @@ SUS = [
 ]
 SCALE = [1, 2, 3, 4, 5]
 
-with st.container(border=True):
+with st.container(border=True, key="card_survey"):
     st.subheader("Usability survey (SUS)")
     st.caption("10 short statements · 1 = strongly disagree, 5 = strongly agree · takes about a minute")
     if st.session_state.get("sus_done"):
