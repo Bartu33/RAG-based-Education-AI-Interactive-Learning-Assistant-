@@ -25,7 +25,7 @@ def match_mix(exams):
 def past_exams(course):
     """Upload / list / remove the course's past exams (instructor's question style)."""
     exams = safe(api.exams, course) or []
-    with st.expander(f"🧾 Past exams of {course} ({len(exams)}): questions in the instructor's style"):
+    with st.expander(icon=":material/history_edu:", label=f"Past exams of {course} ({len(exams)}): questions in the instructor's style"):
         st.caption("Upload old exams of this course. They are analysed once: how the instructor asks, which "
                    "topics come up. Then choose **Like the past exams** below. Exams are only style examples: "
                    "answers still come from the course material, and Q&A never cites them.")
@@ -140,7 +140,7 @@ if qs:
         if good >= 0.8 * len(qs) and qs[0]["id"] not in celebrated:
             celebrated.add(qs[0]["id"])   # once per test
             st.balloons()
-    top[1].download_button("⬇️ Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json")
+    top[1].download_button("Download as JSON", json.dumps(qs, ensure_ascii=False, indent=2), "questions.json", icon=":material/download:")
 
 
 def mark_tiles(qid: str, labels: list, pick, right, correct: bool) -> None:
@@ -156,7 +156,7 @@ def mark_tiles(qid: str, labels: list, pick, right, correct: bool) -> None:
 
 
 def explanation(q):
-    st.markdown(fix_markdown(q["explanation"])); st.caption(f"📎 {q['source']}")
+    st.markdown(fix_markdown(q["explanation"])); st.caption(f":material/attach_file: {q['source']}")
 
 
 for i, q in enumerate(qs, 1):
@@ -166,7 +166,7 @@ for i, q in enumerate(qs, 1):
         text = fix_markdown(q["question"])   # a displayed formula cannot sit inside a heading
         st.markdown(text if "$$" in text else f"##### {text}")
         if q.get("style_ref"):
-            st.caption(f"🧾 In the style of {q['style_ref']}")
+            st.caption(f":material/history_edu: In the style of {q['style_ref']}")
         if is_choice(q):
             # graded locally: the correct answer is part of the question, so no LLM call is needed
             options = q["options"] or ["True", "False"]
@@ -186,10 +186,10 @@ for i, q in enumerate(qs, 1):
                 right = next((l for o, l in zip(options, labels) if o.strip().lower() == key), q["correct_answer"])
                 mark_tiles(q["id"], labels, pick, right, done["correct"])
                 if done["correct"]:
-                    st.markdown('<div class="q-ok"><span class="big">✓ Correct</span>Nicely done!</div>',
+                    st.markdown('<div class="q-ok"><span class="big"><span class="mi">check_circle</span> Correct</span>Nicely done!</div>',
                                 unsafe_allow_html=True)
                 else:
-                    st.markdown(f'<div class="q-bad"><span class="big">✗ Not quite</span>The correct answer is '
+                    st.markdown(f'<div class="q-bad"><span class="big"><span class="mi">cancel</span> Not quite</span>The correct answer is '
                                 f'<b>{html.escape(str(right))}</b>.</div>', unsafe_allow_html=True)
                 explanation(q)
                 if st.button("Try again", key=f"retry_{q['id']}"):

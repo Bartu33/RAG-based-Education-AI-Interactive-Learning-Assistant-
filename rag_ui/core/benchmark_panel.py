@@ -33,5 +33,5 @@ def render():
         c[0].metric("Intrinsic (contradicts source)", f"{df['Intrinsic (%)'].mean():.1f}%")
         c[1].metric("Extrinsic (unverifiable)", f"{df['Extrinsic (%)'].mean():.1f}%")
         met = df["Retrieval (ms)"].max() < 500 and df["Answer (s)"].max() < 5
-        c[2].metric("Target: <500 ms / <5 s", "✅" if met else "❌")
-        st.download_button("⬇️ Download CSV", df.to_csv(index=False), "benchmark.csv")
+        c[2].metric("Target: <500 ms / <5 s", "Met" if met else "Not met")
+        st.download_button("Download CSV", df.to_csv(index=False), "benchmark.csv", icon=":material/download:")

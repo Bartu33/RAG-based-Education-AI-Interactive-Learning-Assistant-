@@ -18,11 +18,11 @@ c["provider"] = st.radio("Provider", PROVIDERS, index=PROVIDERS.index(c["provide
 if view == "General":
     st.subheader("Answer quality")
     INFO = {
-        "Low": ("⚡ Fast", "Fewest course excerpts and no grounding check. Quickest answers and the "
+        "Low": (":material/bolt: Fast", "Fewest course excerpts and no grounding check. Quickest answers and the "
                           "fewest tokens: good when the daily limit is running low."),
-        "Medium": ("⚖️ Balanced", "The recommended setting: enough excerpts for most questions, and every "
-                                 "Q&A answer is checked against the material (🟢 / 🟡 / 🔴 label)."),
-        "High": ("🎯 Thorough", "The most excerpts: fuller answers to broad questions that span several "
+        "Medium": (":material/balance: Balanced", "The recommended setting: enough excerpts for most questions, and every "
+                                 "Q&A answer is checked against the material (the Grounded / Unsupported label)."),
+        "High": (":material/target: Thorough", "The most excerpts: fuller answers to broad questions that span several "
                                "pages, but slower and uses the most tokens."),
     }
     now = preset_of(c)
@@ -46,7 +46,7 @@ if view == "General":
     st.caption("Everything else (thresholds, benchmark) is under **Advanced**, top right.")
 
 else:
-    retrieval, bench = st.tabs(["🔧 Retrieval and thresholds", "📊 Benchmark"])
+    retrieval, bench = st.tabs([":material/tune: Retrieval and thresholds", ":material/monitoring: Benchmark"])
     with retrieval:
         st.subheader("Retrieval")
         a, b = st.columns(2)
@@ -55,7 +55,7 @@ else:
         a, b = st.columns(2)
         c["study_top_k"] = a.slider("Study Buddy excerpts per question", 1, 8, c["study_top_k"])
         c["score_faithfulness"] = b.toggle("Grounding check on Q&A answers", c["score_faithfulness"],
-                                           help="One extra LLM call per answer: the 🟢 / 🟡 / 🔴 label.")
+                                           help="One extra LLM call per answer: the Grounded / Unsupported label.")
         st.subheader("Thresholds")
         c["conf_threshold"] = st.slider("STT confidence threshold (flags transcript segments to correct)", 0.0, 1.0, c["conf_threshold"], 0.05)
         t1, t2 = st.columns(2)

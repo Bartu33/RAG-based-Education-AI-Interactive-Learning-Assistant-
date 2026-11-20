@@ -101,7 +101,7 @@ def course_picker(key: str, all_lectures: bool = True) -> tuple[str, Optional[in
         st.stop()
     if not courses:
         st.info("No course material is indexed yet.")
-        st.page_link("views/materials.py", label="Upload materials →")
+        st.page_link("views/materials.py", label="Upload materials", icon=":material/upload:")
         st.stop()
     by_name = {c["course"]: c for c in courses}
     c1, c2 = st.columns(2)
@@ -147,9 +147,9 @@ def render_evaluation(r: dict, rating_id: Optional[str] = None, question: str = 
             st.progress(d["score"])
     st.markdown("**Detailed feedback**")
     for f in r["feedback"]: st.write(f)
-    st.caption(f"📎 Reference: {r['source']}")
+    st.caption(f":material/attach_file: Reference: {r['source']}")
     if r["follow_up_question"]:
-        st.info(f"🎯 **Follow-up practice:** {r['follow_up_question']}")
+        st.info(f"**Follow-up practice:** {r['follow_up_question']}", icon=":material/target:")
     if rating_id:
         st.caption("Was this feedback helpful?")
         feedback_widget("evaluation", rating_id, {"question": question, "score": r["total"]})
@@ -208,7 +208,7 @@ def split_beyond(text: str) -> tuple[str, Optional[str]]:
 class BeyondStream:
     """Wraps a streamed answer for st.write_stream: while writing, the [BEYOND] marker is shown as
     a separator line; the raw text is kept in .raw so it can be split afterwards."""
-    SEPARATOR = "\n\n---\n💡 **Beyond the course material** (general knowledge)\n\n"
+    SEPARATOR = "\n\n---\n:material/lightbulb: **Beyond the course material** (general knowledge)\n\n"
 
     def __init__(self, pieces):
         self.pieces, self.raw = pieces, ""
@@ -234,11 +234,11 @@ def is_choice(q: dict) -> bool:
 
 def label_for(score: Optional[float]):
     if score is None:
-        return "⚪ Not scored"
+        return ":gray-badge[Not scored]"
     c = st.session_state.cfg
-    if score >= c["th_grounded"]: return "🟢 Grounded"
-    if score >= c["th_partial"]: return "🟡 Partially grounded"
-    return "🔴 Unsupported"
+    if score >= c["th_grounded"]: return ":green-badge[:material/verified: Grounded]"
+    if score >= c["th_partial"]: return ":orange-badge[:material/rule: Partially grounded]"
+    return ":red-badge[:material/error: Unsupported]"
 
 
 def mmss(ms: int) -> str:

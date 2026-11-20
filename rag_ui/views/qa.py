@@ -23,6 +23,9 @@ QA_LAYOUT = """
 .st-key-qa_bottom [data-testid="stColumn"]:last-child{ flex:1 1 auto !important; width:auto !important; }
 </style>
 """
+if not any(m.get("mid") == st.session_state.get("board_focus") and (m.get("board") or {}).get("video")
+           for m in st.session_state.chat):
+    QA_LAYOUT = QA_LAYOUT.replace("--qa-video:calc(340px + 24px + 1rem);", "--qa-video:1.5rem;")   # no corner video now
 st.markdown(QA_LAYOUT, unsafe_allow_html=True)
 
 def clear_chat():
@@ -32,11 +35,11 @@ def clear_chat():
 
 course, lecture = course_picker("qa")
 t1, t2, t3 = st.columns(3)
-watching = t1.toggle("🎬 I'm watching the lecture video")
-use_board = t2.toggle("🧑‍🏫 Teaching board", value=True,
+watching = t1.toggle(":material/smart_display: I'm watching the lecture video")
+use_board = t2.toggle(":material/co_present: Teaching board", value=True,
                       help="Video answers play in the corner; the matching slide / page is shown with the "
                            "relevant lines highlighted; math questions are solved step by step on a whiteboard.")
-make_video = t3.toggle("🎞️ Explanation video", value=True, disabled=not use_board,
+make_video = t3.toggle(":material/movie: Explanation video", value=True, disabled=not use_board,
                        help="Also record the explanation as a video: the lecturer's voice (Piper, local), "
                             "the slides / whiteboard and the lecture recording in the corner.")
 ts = st.slider("Watched time range (min)", 0, 90, (12, 14)) if watching else None
@@ -50,7 +53,7 @@ def render(m):
         cols[0].markdown(label_for(m["faithfulness"]))
         cols[1].caption(f"Faithfulness: {'—' if m['faithfulness'] is None else m['faithfulness']}")
     else:
-        cols[0].markdown("ℹ️ Not found in course materials")
+        cols[0].markdown(":gray-badge[:material/info: Not found in course materials]")
         cols[1].caption("Nothing to verify")
     cols[2].caption(f"Retrieval: {m['retrieval_ms']} ms · Total: {m['total_s']} s")
     cols[3].caption(f"Sent to API: ~{m['tokens_sent']} tokens")
@@ -58,9 +61,9 @@ def render(m):
         styles.beyond_box(m["beyond"], m["mid"])
     if found:  # the lecturer explains the course-material part (after the answer, labels and beyond box)
         board.render(m, m["course"])
-    title = f"📎 Sources ({len(m['sources'])})" if found else f"🔎 Closest passages checked ({len(m['sources'])})"
+    title = f"Sources ({len(m['sources'])})" if found else f"Closest passages checked ({len(m['sources'])})"
     if m["sources"]:
-        with st.expander(title):
+        with st.expander(title, icon=":material/attach_file:" if found else ":material/search:"):
             for i, s in enumerate(m["sources"], 1):
                 if s["type"] == "video" and s["start_ms"] is not None:
                     loc = f" · {mmss(s['start_ms'])}–{mmss(s['end_ms'])}"
@@ -70,7 +73,7 @@ def render(m):
                     loc = ""
                 st.markdown(f"**[{i}]** `{s['type']}` {s['document']}{loc} · score {s['score']}")
                 st.caption(s["text"])
-    with st.expander("🛡️ Preview of context sent externally"):
+    with st.expander("Preview of context sent externally", icon=":material/shield:"):
         if m.get("provider") == "ollama": st.success("Privacy mode: no data was sent externally (Ollama).")
         elif not m["sources"]: st.info("Nothing was sent: no relevant course material was found.")
         else: st.warning(f"Only {len(m['sources'])} chunks were sent to {m.get('provider') or 'the LLM'} — the raw documents are never sent.")

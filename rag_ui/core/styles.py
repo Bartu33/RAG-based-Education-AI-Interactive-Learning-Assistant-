@@ -24,7 +24,8 @@ html, body, .stApp, [class*="css"]{ font-family:'Inter',system-ui,-apple-system,
 .stApp{ background:var(--bg); color:var(--text); }
 header[data-testid="stHeader"]{ background:transparent; }
 [data-testid="stDecoration"], #MainMenu, footer{ display:none !important; }
-.block-container{ padding-top:3.2rem !important; padding-bottom:4rem; max-width:1120px; }
+.block-container{ padding:2.6rem clamp(1.2rem, 3vw, 3.5rem) 4rem !important; max-width:1680px !important; }
+[data-testid="stBottomBlockContainer"]{ max-width:1680px; }
 
 /* ---------- typography ---------- */
 h1{ font-weight:800 !important; font-size:2.2rem !important; letter-spacing:-.025em; line-height:1.15 !important;
@@ -107,6 +108,18 @@ button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hov
 [data-testid="stChatMessage"]:not(:has([data-testid="stChatMessageAvatarUser"])):not(:has([data-testid="chatAvatarIcon-user"])){
   border-radius:16px 16px 16px 4px; }
 [data-testid="stChatInput"]{ border-radius:14px; }
+[data-testid="stChatMessage"] [data-testid^="stChatMessageAvatar"],
+[data-testid="stChatMessage"] [data-testid^="chatAvatarIcon"]{ display:none !important; }
+/* the role in small caps above each message instead of the avatar */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stChatMessageContent"]::before,
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarImage"]) [data-testid="stChatMessageContent"]::before{
+  content:"Assistant"; display:block; font-size:.7rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--accent); margin-bottom:.35rem; }
+
+/* ---------- icon chips (instead of emojis) ---------- */
+.mi{ font-family:'Material Symbols Rounded'; font-weight:normal; font-style:normal; font-size:1.25em; line-height:1;
+  display:inline-block; vertical-align:-.22em; letter-spacing:normal; text-transform:none; white-space:nowrap;
+  -webkit-font-feature-settings:'liga'; font-feature-settings:'liga'; }
 
 /* ---------- home / login ---------- */
 .pill{ display:inline-block; padding:.12rem .65rem; margin-right:.4rem; border-radius:999px; font-size:.74rem; font-weight:700;
@@ -137,7 +150,8 @@ button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hov
 .dash-sub{ color:var(--muted); margin-bottom:1rem; }
 .streak{ display:flex; align-items:center; gap:.9rem; padding:1rem 1.2rem; border-radius:16px; border:1px solid #FFE1B3;
   background:linear-gradient(120deg,#FFF6E5,#FFFBF2); height:100%; }
-.streak .flame{ font-size:2.2rem; line-height:1; }
+.streak .flame{ font-size:2.2rem; line-height:1; color:#E8890C; }
+.streak .flame .mi{ font-size:2.6rem; }
 .streak .n{ font-family:'Nunito',sans-serif; font-size:1.9rem; font-weight:900; color:#E8890C; line-height:1; }
 .streak .l{ color:#8A5A10; font-size:.85rem; font-weight:600; }
 .course-tile{ border-radius:14px; padding:.9rem 1rem .4rem; color:#fff; margin-bottom:.4rem; }
@@ -150,19 +164,53 @@ button[kind="secondary"]:hover, button[data-testid="stBaseButton-secondary"]:hov
 .continue .t{ font-weight:700; }
 .continue .d{ color:var(--muted); font-size:.85rem; }
 
-/* login */
-.login-hero{ border-radius:20px; padding:2.2rem 2rem; color:#fff; height:100%;
-  background:linear-gradient(150deg,#0B4FC5 0%,#1865F2 60%,#4F8DF7 100%); }
-.login-hero h1{ color:#fff !important; font-size:2.3rem !important; margin:0 0 .6rem !important; padding:0 !important; }
-.login-hero h1 .hl{ color:#FFE27A; }
-.login-hero h1, .login-hero h1 span:not(.hl){ color:#fff !important; }
-.login-hero p.lead{ color:#E6EEFF; font-size:1.02rem; margin-bottom:1.4rem; }
-.login-feat{ display:flex; gap:.8rem; align-items:flex-start; margin:.9rem 0; }
-.login-feat .i{ flex:0 0 38px; height:38px; border-radius:10px; display:grid; place-items:center;
-  background:rgba(255,255,255,.16); font-size:1.15rem; }
-.login-feat .t{ font-weight:700; }
-.login-feat .d{ color:#DCE7FF; font-size:.88rem; }
-.st-key-login_box{ background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:1.4rem 1.6rem; box-shadow:var(--shadow); }
+/* login (views/login.py): brand bar, light introduction, sign-in card */
+.lg-bar{ display:flex; align-items:center; gap:.65rem; }
+.lg-bar .logo{ width:38px; height:38px; border-radius:10px; display:grid; place-items:center; background:var(--accent);
+  color:#fff; font-weight:900; font-size:1.1rem; font-family:'Nunito',sans-serif; }
+.lg-bar .name{ font-weight:800; font-size:1.15rem; }
+.lg-bar .tag{ margin-left:.4rem; padding:.18rem .6rem; border-radius:999px; background:var(--accent-soft); color:var(--accent);
+  font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.lg-intro{ padding:.5rem 1rem 1rem 0; }
+.lg-eyebrow{ color:var(--accent); font-weight:800; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.6rem; }
+.lg-intro h1{ font-size:clamp(2.2rem, 3.4vw, 3.4rem) !important; line-height:1.12 !important; margin:0 0 .9rem !important;
+  padding:0 !important; letter-spacing:-.03em; }
+.lg-intro h1 .hl{ color:var(--accent); }
+.lg-intro p.lead{ color:var(--muted); font-size:1.08rem; max-width:620px; margin-bottom:1.6rem; }
+.lg-feat{ display:flex; gap:.9rem; align-items:flex-start; margin:1rem 0; max-width:600px; }
+.lg-feat .i{ flex:0 0 44px; height:44px; border-radius:12px; display:grid; place-items:center; background:#fff;
+  border:1px solid var(--line); color:var(--accent); box-shadow:var(--shadow); font-size:1.3rem; }
+.lg-feat .t{ font-weight:700; }
+.lg-feat .d{ color:var(--muted); font-size:.92rem; }
+.lg-note{ margin-top:1.6rem; color:var(--muted); font-size:.86rem; display:flex; gap:.4rem; align-items:center; }
+.st-key-login_box{ background:#fff; border:1px solid var(--line); border-radius:20px; padding:2rem 2rem 1.4rem;
+  box-shadow:0 2px 4px rgba(33,36,44,.04), 0 18px 48px rgba(24,101,242,.10); }
+.lg-title{ font-size:1.7rem; font-weight:800; letter-spacing:-.02em; }
+.lg-sub{ color:var(--muted); margin:.2rem 0 1rem; }
+/* the Log in / Register tabs as one segmented control */
+.st-key-login_box [role="tablist"]{ background:var(--panel2); border-radius:12px; padding:4px; gap:4px; border:0 !important; }
+.st-key-login_box [role="tab"]{ flex:1; justify-content:center; border-radius:9px; padding:.5rem 0 !important; margin:0 !important; }
+.st-key-login_box [role="tab"][aria-selected="true"]{ background:#fff; box-shadow:0 1px 3px rgba(33,36,44,.12); }
+.st-key-login_box [role="tab"] p{ font-weight:700; }
+.st-key-login_box [data-baseweb="tab-highlight"], .st-key-login_box [data-baseweb="tab-border"],
+.st-key-login_box [data-testid="stTabs"] [role="tablist"] + div:empty{ display:none !important; }
+.st-key-login_box button[data-testid="stBaseButton-primaryFormSubmit"]{ padding:.65rem 0 !important; font-size:1rem; }
+.lg-intro p.lead{ font-size:1.15rem; }
+.lg-how{ padding:1.6rem 1.8rem; border-radius:20px; background:rgba(255,255,255,.75);
+  border:1px solid var(--line); box-shadow:var(--shadow); }
+.lg-how-title{ font-weight:800; font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; }
+.lg-steps{ display:grid; grid-template-columns:repeat(3, 1fr); gap:1.4rem; }
+.lg-step{ position:relative; padding-left:3.6rem; }
+.lg-step .n{ position:absolute; left:0; top:0; width:2.6rem; height:2.6rem; border-radius:50%; display:grid; place-items:center;
+  background:var(--accent); color:#fff; font-weight:900; font-family:'Nunito',sans-serif; font-size:1.1rem; }
+.lg-step .i{ display:none; }
+.lg-step .t{ font-weight:700; margin-bottom:.15rem; }
+.lg-step .d{ color:var(--muted); font-size:.9rem; line-height:1.5; }
+.lg-foot{ display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; padding-top:1rem;
+  border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; }
+.lg-foot .lg-bar .logo{ width:30px; height:30px; font-size:.9rem; border-radius:8px; }
+.lg-foot .lg-bar .name{ font-size:.95rem; color:var(--text); }
+@media (max-width: 900px){ .lg-steps{ grid-template-columns:1fr; } }
 
 /* ---------- quiz (Question Generation): Duolingo-like ---------- */
 .st-key-qg_setup button[kind="primary"], [class*="st-key-qcard_"] button[kind="primary"],
@@ -267,7 +315,7 @@ def beyond_box(text: str, key: str, source: str = "course materials") -> None:
     import streamlit as st
     from core.board import fix_markdown   # LaTeX \( \) / \[ \] -> $ / $$ so the formulas render
     with st.container(key=f"beyond_{key}"):
-        st.markdown('<div class="beyond-head">💡 Beyond the course material</div>'
+        st.markdown('<div class="beyond-head"><span class="mi">lightbulb</span> Beyond the course material</div>'
                     f'<div class="beyond-note">General knowledge and reasoning, not taken from your '
                     f'{source}. Double-check it with the lecture notes or your instructor.</div>',
                     unsafe_allow_html=True)

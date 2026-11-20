@@ -46,7 +46,7 @@ if s:
     r, sus = s["ratings"], s["sus"]
     c = st.columns(3)
     def pct(k):
-        return "—" if r[k]["positive_pct"] is None else f"{r[k]['positive_pct']:.0f}% 👍"
+        return "—" if r[k]["positive_pct"] is None else f"{r[k]['positive_pct']:.0f}% positive"
     c[0].metric("Q&A answers", pct("qa"), f"{r['qa']['count']} ratings", delta_color="off")
     c[1].metric("Answer feedback", pct("evaluation"), f"{r['evaluation']['count']} ratings", delta_color="off")
     c[2].metric("SUS (mean)", "—" if sus["mean"] is None else f"{sus['mean']:.1f}",
@@ -56,4 +56,4 @@ if s:
     if s["comments"]:
         with st.expander(f"Latest comments ({len(s['comments'])})"):
             for cm in reversed(s["comments"]):
-                st.write(f"{'👍' if cm['up'] else '👎'} `{cm['kind']}` {cm['comment']}")
+                st.write(f"{':green[:material/thumb_up:]' if cm['up'] else ':red[:material/thumb_down:]'} `{cm['kind']}` {cm['comment']}")

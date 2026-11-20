@@ -47,13 +47,13 @@ except api.ApiError:
 # --- greeting + streak + numbers ---
 hour = datetime.now().hour
 hello = "Good morning" if hour < 12 else "Good afternoon" if hour < 18 else "Good evening"
-st.markdown(f'<div class="dash-hello">{hello}, {html.escape(ss.auth["student_no"])} 👋</div>'
+st.markdown(f'<div class="dash-hello">{hello}, {html.escape(ss.auth["student_no"])}</div>'
             f'<div class="dash-sub">{date.today():%A, %d %B} · here is where you are.</div>',
             unsafe_allow_html=True)
 
 days = streak(tests)
 c0, c1, c2, c3 = st.columns([1.3, 1, 1, 1], gap="medium")
-c0.markdown(f'<div class="streak"><div class="flame">{"🔥" if days else "🌱"}</div><div>'
+c0.markdown(f'<div class="streak"><div class="flame"><span class="mi">{"local_fire_department" if days else "eco"}</span></div><div>'
             f'<div class="n">{days} day{"s" if days != 1 else ""}</div>'
             f'<div class="l">{"practice streak, keep it going!" if days else "practise today to start a streak"}'
             f'</div></div></div>', unsafe_allow_html=True)
@@ -73,24 +73,24 @@ with left, st.container(border=True):
         t = tests[0]   # newest first
         s = t["summary"]
         where = t["course"] + (f" · Lecture {t['lecture']}" if t["lecture"] else "")
-        st.markdown(f'<div class="continue"><div class="i">📝</div><div><div class="t">Test {t["number"]} · '
+        st.markdown(f'<div class="continue"><div class="i"><span class="mi">assignment</span></div><div><div class="t">Test {t["number"]} · '
                     f'{html.escape(where)}</div><div class="d">{s["answered"]} of {s["questions"]} questions '
                     f'answered</div></div></div>', unsafe_allow_html=True)
         st.page_link("views/history.py", label="Review it in My Results", icon=":material/arrow_forward:")
     else:
-        st.markdown('<div class="continue"><div class="i">📝</div><div><div class="t">No tests yet</div>'
+        st.markdown('<div class="continue"><div class="i"><span class="mi">assignment</span></div><div><div class="t">No tests yet</div>'
                     '<div class="d">Generate your first practice test.</div></div></div>', unsafe_allow_html=True)
         st.page_link("views/question_gen.py", label="Practise now", icon=":material/arrow_forward:")
 with right, st.container(border=True):
     last = ss.get("iv_current")   # set by Interactive Learning when a document is open
     if last:
         course, document = last.split("|", 1)
-        st.markdown(f'<div class="continue"><div class="i">📖</div><div><div class="t">{html.escape(document)}</div>'
+        st.markdown(f'<div class="continue"><div class="i"><span class="mi">menu_book</span></div><div><div class="t">{html.escape(document)}</div>'
                     f'<div class="d">{html.escape(course)} · last opened document</div></div></div>',
                     unsafe_allow_html=True)
         st.page_link("views/interactive.py", label="Keep reading", icon=":material/arrow_forward:")
     else:
-        st.markdown('<div class="continue"><div class="i">📖</div><div><div class="t">Study a document</div>'
+        st.markdown('<div class="continue"><div class="i"><span class="mi">menu_book</span></div><div><div class="t">Study a document</div>'
                     '<div class="d">Open slides, notes or a lecture video with the study buddy.</div></div></div>',
                     unsafe_allow_html=True)
         st.page_link("views/interactive.py", label="Open Interactive Learning", icon=":material/arrow_forward:")
@@ -107,8 +107,8 @@ else:
     done = {}
     for t in tests:
         done[t["course"]] = done.get(t["course"], 0) + 1
-    for row in range(0, len(courses), 3):
-        for i, (col, c) in enumerate(zip(st.columns(3, gap="medium"), courses[row:row + 3])):
+    for row in range(0, len(courses), 4):
+        for i, (col, c) in enumerate(zip(st.columns(4, gap="medium"), courses[row:row + 4])):
             color = TILE_COLORS[(row + i) % len(TILE_COLORS)]
             with col, st.container(key=f"course_{row + i}"):
                 lectures = len(c["lectures"])
@@ -132,5 +132,5 @@ m[1].metric("Indexed chunks", "—" if docs is None else sum(d["chunks"] for d i
 m[2].metric("Questions asked", sum(1 for x in ss.chat if x["role"] == "user"))
 m[3].metric("Practice questions", len(ss.questions))
 
-st.markdown('<div class="privacy">🔒 <span>Your course files are processed locally. Only a few short, relevant '
+st.markdown('<div class="privacy"><span class="mi">lock</span><span>Your course files are processed locally. Only a few short, relevant '
             'excerpts are ever sent to the language model.</span></div>', unsafe_allow_html=True)

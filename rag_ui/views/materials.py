@@ -4,7 +4,7 @@ from core import api_client as api
 from core.state import backend_config, cached_courses, cached_documents, invalidate, mmss, safe
 styles.kicker("RAG PIPELINE"); st.title(":material/folder_open: Materials")
 cfg = st.session_state.cfg
-NEW = "➕ New course…"
+NEW = "New course…"
 
 with st.container(border=True):
     known = [c["course"] for c in (safe(cached_courses) or [])]
@@ -45,14 +45,14 @@ if docs:
     low = safe(api.low_confidence, cfg["conf_threshold"]) or []
     if low:
         st.warning(f"The STT confidence is below {cfg['conf_threshold']} for {len(low)} video segments. Reprocess with a larger model or correct them manually.")
-        with st.expander("✏️ Edit transcript (instructor)"):
+        with st.expander("Edit transcript (instructor)", icon=":material/edit:"):
             seg = st.selectbox("Segment", low, format_func=lambda x: f"{x['document']} · {mmss(x['start_ms'])}–{mmss(x['end_ms'])} · confidence {x['confidence']:.2f}")
             text = st.text_area("Corrected text", seg["text"], height=100, key=f"fix_{seg['id']}")
             if st.button("Save correction", disabled=not text.strip()):
                 if safe(api.correct_chunk, seg["id"], text):
                     st.success("Saved and re-embedded."); st.rerun()
 
-    with st.expander("🗑️ Remove materials"):
+    with st.expander("Remove materials", icon=":material/delete:"):
         courses = {c["course"]: c for c in (safe(cached_courses) or [])}
         d1, d2 = st.columns(2)
         dc = d1.selectbox("Course to remove", list(courses), key="del_course")

@@ -40,13 +40,13 @@ with st.sidebar:
         st.info("Hybrid mode: only 3–5 context chunks are sent to the API", icon=":material/shield:")
     h = backend_health()
     if h:
-        st.caption(f"🟢 Backend connected · default LLM: {h['provider']}")
+        st.caption(f":green[:material/check_circle:] Backend connected · default LLM: {h['provider']}")
         if h.get("models") == "loading":
-            st.warning("⏳ Loading the embedding and reranker models (the first start downloads ~4 GB). "
-                       "Questions will be slow until this finishes.")
+            st.warning("Loading the embedding and reranker models (the first start downloads ~4 GB). "
+                       "Questions will be slow until this finishes.", icon=":material/hourglass_top:")
         elif h.get("models") == "failed":
             st.error(f"Model loading failed: {h.get('models_error')}")
     else:
-        st.error(f"🔴 Backend offline ({BASE_URL})")
+        st.error(f"Backend offline ({BASE_URL})", icon=":material/cloud_off:")
         st.caption("Start it with `uvicorn backend.main:app`")
 st.navigation(pages).run()

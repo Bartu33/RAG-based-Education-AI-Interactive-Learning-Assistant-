@@ -19,11 +19,11 @@ from core.video_player import moment, player
 
 styles.kicker("STUDY MODE"); st.title(":material/menu_book: Interactive Learning")
 # this page shows a document and a chat side by side, so it may use more of the screen
-st.markdown("<style>.block-container{max-width:1500px !important;}</style>", unsafe_allow_html=True)
+st.markdown("<style>.block-container{max-width:none !important;}</style>", unsafe_allow_html=True)
 
-ICONS = {"pdf": "📕", "pptx": "📊", "docx": "📝", "video": "🎬"}
+ICONS = {"pdf": "PDF", "pptx": "Slides", "docx": "Word", "video": "Video"}   # type shown after the name
 BOT_ICON = Path(__file__).resolve().parent.parent / "assets" / "chat-bot-icon.png"
-BOT_AVATAR = str(BOT_ICON) if BOT_ICON.is_file() else "🤖"   # chat avatar of the study buddy
+BOT_AVATAR = str(BOT_ICON) if BOT_ICON.is_file() else ":material/smart_toy:"   # chat avatar of the study buddy
 ss = st.session_state
 ss.setdefault("buddy_open", False)
 ss.setdefault("buddy_chats", {})   # "course|document" -> [messages]
@@ -71,7 +71,7 @@ def upload_progress():
             ss.iv_jobs.pop(k); continue
         name, total = job["document"], job["duration_ms"]
         if job["state"] == "failed":
-            st.error(f"🎬 {name}: {job['error']}")
+            st.error(f"{name}: {job['error']}", icon=":material/error:")
             if st.button("OK", key=f"jobok_{job_id}"):
                 ss.iv_jobs.pop(k); st.rerun()
             continue
@@ -79,8 +79,8 @@ def upload_progress():
         if done and ss.get("iv_current") == k:   # finished and open in the viewer: nothing to show
             ss.iv_jobs.pop(k); continue
         share = 1.0 if done else (job["done_ms"] / total if total else 0.0)
-        text = (f"🎬 **{name}**: ready ({job['chunks']} transcript parts)" if done else
-                f"🎬 **{name}**: transcribing… {mmss(job['done_ms'])}"
+        text = (f"**{name}**: ready ({job['chunks']} transcript parts)" if done else
+                f"**{name}**: transcribing… {mmss(job['done_ms'])}"
                 + (f" / {mmss(total)}" if total else "") + " · you can watch it while this runs")
         c1, c2 = st.columns([4, 1], vertical_alignment="center")
         c1.progress(share, text=text)
@@ -89,9 +89,9 @@ def upload_progress():
             st.rerun(scope="app")
 
 
-with st.expander("🎬 Upload a lecture video to study with"):
+with st.expander("Upload a lecture video to study with", icon=":material/video_call:"):
     known = [c["course"] for c in (safe(cached_courses) or [])]
-    NEW = "➕ New course…"
+    NEW = "New course…"
     u1, u2 = st.columns(2)
     pick = u1.selectbox("Course", known + [NEW], key="vu_course")
     v_course = (u1.text_input("New course code", placeholder="e.g. CENG336", key="vu_new")
@@ -119,7 +119,7 @@ if docs is None:
     st.stop()
 if not docs:
     st.info("You have no indexed documents yet. Upload a lecture video above, or course materials:")
-    st.page_link("views/materials.py", label="Upload materials →")
+    st.page_link("views/materials.py", label="Upload materials", icon=":material/upload:")
     st.stop()
 
 def natural(name: str) -> list:
@@ -138,7 +138,7 @@ keys = sorted((k for k, d in by_key.items() if d["course"] == course and week in
               key=lambda k: (by_key[k]["lecture"], natural(by_key[k]["document"])))
 key = p3.selectbox(
     "Document", keys, key=f"iv_doc_{course}_{week}",
-    format_func=lambda k: f"{ICONS.get(by_key[k]['type'], '📄')} {by_key[k]['document']}"
+    format_func=lambda k: f"{by_key[k]['document']}  ·  {ICONS.get(by_key[k]['type'], 'File')}"
                           + (f" · week {by_key[k]['lecture']}" if week is None and len(weeks) > 1 else ""))
 d = by_key[key]
 ss.iv_current = key
@@ -197,7 +197,7 @@ def transcript_progress(course: str, document: str):
         outline.clear()
         st.rerun(scope="app")
     total = f" of {mmss(job['duration_ms'])}" if job["duration_ms"] else ""
-    st.info(f"⏳ Still transcribing: the study buddy knows the video up to **{mmss(job['done_ms'])}**{total}. "
+    st.info(icon=":material/hourglass_top:", body=f"Still transcribing: the study buddy knows the video up to **{mmss(job['done_ms'])}**{total}. "
             "The rest is added automatically.")
 
 
@@ -214,7 +214,7 @@ icon = bot_icon_uri()
 if icon:
     st.markdown(f"<style>.st-key-buddy_fab button, .st-key-buddy_fab_open button"
                 f"{{background-image:url('{icon}') !important;}}</style>", unsafe_allow_html=True)
-st.button("Study Buddy" if icon else "🤖", key="buddy_fab_open" if ss.buddy_open else "buddy_fab",
+st.button("Study Buddy", key="buddy_fab_open" if ss.buddy_open else "buddy_fab",
           on_click=toggle_buddy,
           help="Close the study buddy" if ss.buddy_open else "Ask the study buddy about this document")
 
@@ -228,7 +228,7 @@ if playing:
                 "<style></style>", unsafe_allow_html=True)
     with st.container(key="vplayer"):
         event = player(api.study_file_url(d["course"], d["document"]), vp_key,
-                       "mini" if mini else "main", moment(vp_key), ss.get(vp_seek), f"🎬 {d['document']}",
+                       "mini" if mini else "main", moment(vp_key), ss.get(vp_seek), d["document"],
                        max_height=480)
     if event and event["event"] in ("expand", "ask") and ss.buddy_open != (event["event"] == "ask"):
         ss.buddy_open = event["event"] == "ask"
@@ -256,8 +256,8 @@ if viewer is not None:
                 ss.setdefault(seek, 0)
                 st.info("The original video is not on the server; the transcript is shown below.")
                 st.slider("I'm at (seconds) — the buddy explains this moment", 0, dur, key=seek, step=5)
-                st.caption(f"⏱️ {mmss(int(ss[seek]) * 1000)} / {mmss(dur * 1000)}")
-            with st.expander(f"📜 Transcript ({len(units)} parts)"):
+                st.caption(f":material/schedule: {mmss(int(ss[seek]) * 1000)} / {mmss(dur * 1000)}")
+            with st.expander(f"Transcript ({len(units)} parts)", icon=":material/subtitles:"):
                 for u in units:
                     st.markdown(f"**{u['label']}** — {u['text']}")
         else:
@@ -291,9 +291,9 @@ if viewer is not None:
                     if kind in ("pptx", "docx"):
                         st.caption("The preview shows the slide / section text the assistant uses.")
             if info["has_file"] and kind in ("pptx", "docx"):
-                st.link_button("⬇️ Open the original file", api.study_file_url(d["course"], d["document"]))
+                st.link_button("Open the original file", api.study_file_url(d["course"], d["document"]), icon=":material/download:")
         if not ss.buddy_open:
-            st.caption("💡 Click the assistant button (bottom right) to ask questions about this document.")
+            st.caption(":material/lightbulb: Click the assistant button (bottom right) to ask questions about this document.")
 
 
 # --- 3. study buddy chat --------------------------------------------------------------------------
@@ -316,7 +316,7 @@ def render_sources(m: dict, idx: int):
     srcs = m.get("sources") or []
     if not srcs:
         return
-    with st.expander(f"📎 {len(srcs)} excerpt{'s' if len(srcs) != 1 else ''} used"):
+    with st.expander(f"{len(srcs)} excerpt{'s' if len(srcs) != 1 else ''} used", icon=":material/attach_file:"):
         for s in srcs:
             a, b = st.columns([4, 1], vertical_alignment="center")
             a.markdown(f"**[{s['n']}] {s['label']}**")
@@ -331,20 +331,20 @@ if panel is not None:
         with st.container(border=True, key="buddy_panel"):
             h1, h2, h3, *h4 = st.columns([3, 2, 1, 1] if playing else [3, 2, 1], vertical_alignment="center")
             if h4:
-                h4[0].button("🎬", key="buddy_back", on_click=toggle_buddy, help="Back to the video")
-            logo = f'<img src="{icon}" alt="">' if icon else "🤖 "
+                h4[0].button(":material/smart_display:", key="buddy_back", on_click=toggle_buddy, help="Back to the video")
+            logo = f'<img src="{icon}" alt="">' if icon else ""
             h1.markdown(f'<div class="buddy-title">{logo}Study Buddy</div>'
                         f'<div class="buddy-sub">{html.escape(d["document"])}</div>',
                         unsafe_allow_html=True)
             lang = h2.segmented_control("Answer language", ["EN", "TR"], default="EN", required=True,
                                         key="buddy_lang", label_visibility="collapsed",
                                         help="Language of the answers")
-            if h3.button("🗑️", key="buddy_clear", help="Clear this chat", disabled=not chat):
+            if h3.button(":material/delete:", key="buddy_clear", help="Clear this chat", disabled=not chat):
                 chat.clear(); st.rerun()
 
-            actions = [("summary", "📝 Summarize", "Summarize this document."),
-                       ("explain", f"💡 {ask_label()}", explain_prompt()),
-                       ("concepts", "🔑 Key concepts", "What are the key concepts?")]
+            actions = [("summary", ":material/summarize: Summarize", "Summarize this document."),
+                       ("explain", f":material/lightbulb: {ask_label()}", explain_prompt()),
+                       ("concepts", ":material/key: Key concepts", "What are the key concepts?")]
             pending: Optional[tuple] = None
             a_cols = st.columns(len(actions))
             for col, (mode, label, prompt) in zip(a_cols, actions):
@@ -354,7 +354,7 @@ if panel is not None:
             box = st.container(height=520, border=False, key="buddy_msgs", autoscroll=True)
             with box:
                 if not chat:
-                    st.markdown('<div class="buddy-empty">👋 Hi! I only read <b>this</b> document, so I '
+                    st.markdown('<div class="buddy-empty">Hi! I only read <b>this</b> document, so I '
                                 'answer fast. Ask me anything about it, or use a button above.</div>',
                                 unsafe_allow_html=True)
                 for i, m in enumerate(chat):
@@ -398,6 +398,6 @@ if panel is not None:
                     # only the document-based part goes back to the model as conversation history
                     chat.append({"role": "assistant", "content": main or answer, "beyond": beyond,
                                  "sources": meta.get("sources", []),
-                                 "timing": f"⚡ search {meta.get('retrieval_ms', '–')} ms · "
+                                 "timing": f"Search {meta.get('retrieval_ms', '–')} ms · "
                                            f"total {total:.1f} s"})
                     st.rerun()

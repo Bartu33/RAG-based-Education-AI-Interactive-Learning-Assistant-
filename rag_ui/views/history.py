@@ -16,7 +16,7 @@ tests, total = data["tests"], data["summary"]
 if not tests:
     st.info("No tests yet. Generate questions on the Question Generation page; every set you generate "
             "appears here as a test with your answers and the correct ones.")
-    st.page_link("views/question_gen.py", label="Practice questions →")
+    st.page_link("views/question_gen.py", label="Practice questions", icon=":material/arrow_forward:")
     st.stop()
 
 
@@ -49,11 +49,12 @@ course = st.selectbox("Course", ["All courses"] + courses) if len(courses) > 1 e
 def show_question(i: int, q: dict) -> None:
     a = q["attempt"]
     if a is None:
-        mark = "⚪"
+        mark = ":gray[:material/radio_button_unchecked:]"
     elif a["is_correct"] is not None:
-        mark = "✅" if a["is_correct"] else "❌"
+        mark = ":green[:material/check_circle:]" if a["is_correct"] else ":red[:material/cancel:]"
     else:
-        mark = "🟢" if a["score"] >= 70 else "🟡" if a["score"] >= 50 else "🔴"
+        mark = (":green[:material/check_circle:]" if a["score"] >= 70 else
+                ":orange[:material/remove_circle:]" if a["score"] >= 50 else ":red[:material/cancel:]")
     score = f" · {a['score']}/100" if a and a["score"] is not None else ""
     st.markdown(f"{mark} **{i}.** " + fix_markdown(q["question"]))
     st.caption(f"{q['type']}{score}" + (f" · answered {a['tries']} times, latest shown" if a and a["tries"] > 1 else ""))
@@ -77,7 +78,7 @@ def show_question(i: int, q: dict) -> None:
         st.markdown("**Feedback you received**")
         st.write("  \n".join(f"• {f}" for f in a["feedback"]))
     if q.get("source"):
-        st.caption(f"📎 {q['source']}")
+        st.caption(f":material/attach_file: {q['source']}")
 
 
 # --- tests, newest first ---
@@ -85,8 +86,8 @@ for t in tests:
     if course != "All courses" and t["course"] != course:
         continue
     where = t["course"] + (f" · Lecture {t['lecture']}" if t["lecture"] else "")
-    label = f"📝 Test {t['number']} · {where} · {local(t['created'])} — {results_line(t['summary'])}"
-    with st.expander(label):
+    label = f"Test {t['number']} · {where} · {local(t['created'])} — {results_line(t['summary'])}"
+    with st.expander(label, icon=":material/assignment:"):
         st.caption(f"{len(t['questions'])} questions · {t['difficulty'] or ''}")
         for i, q in enumerate(t["questions"], 1):
             if i > 1:
@@ -103,8 +104,8 @@ rows = [{"test": t["number"], "created": local(t["created"]), "course": t["cours
          "score": q["attempt"]["score"] if q["attempt"] else None}
         for t in tests for q in t["questions"]]
 c1, c2 = st.columns(2)
-c1.download_button("⬇️ Download as CSV", pd.DataFrame(rows).to_csv(index=False), "my_results.csv")
-with c2.popover("🗑️ Clear my history"):
+c1.download_button("Download as CSV", pd.DataFrame(rows).to_csv(index=False), "my_results.csv", icon=":material/download:")
+with c2.popover("Clear my history", icon=":material/delete:"):
     st.write(f"This deletes all {len(tests)} tests and your answers.")
     if st.button("Delete", type="primary"):
         try:

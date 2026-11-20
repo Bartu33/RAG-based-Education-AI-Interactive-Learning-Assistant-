@@ -100,7 +100,7 @@ def _close_corner() -> None:
 def _corner_video(course: str, video: dict) -> None:
     start, end = video["start_ms"] // 1000, max(video["end_ms"] // 1000, video["start_ms"] // 1000 + 1)
     url = html.escape(f"{api.study_file_url(course, video['document'])}#t={start},{end}", quote=True)
-    label = html.escape(f"🎬 {video['document']} · {mmss(video['start_ms'])}–{mmss(video['end_ms'])}")
+    label = html.escape(f"{video['document']} · {mmss(video['start_ms'])}–{mmss(video['end_ms'])}")
     with st.container(key="corner_video"):   # fixed in the corner by the CSS above
         st.button("✕", key="corner_close", on_click=_close_corner, help="Close the video")
         st.markdown(f'<div class="mv-head">{label}</div>'
@@ -120,11 +120,11 @@ def _say(key: str, text: str, animate: bool, line: str = "") -> None:
         return
     with st.container(key=key):
         if animate:
-            st.write_stream(_speech(f"🧑‍🏫 {text}"))
+            st.write_stream(_speech(text))
         else:
-            st.markdown(f"🧑‍🏫 {text}")
+            st.markdown(text)
         if line:
-            st.caption(f"📍 “{line}”")
+            st.caption(f":material/location_on: “{line}”")
     if animate:
         time.sleep(BEAT_PAUSE_S)
 
@@ -190,7 +190,7 @@ def _page_lesson(mid: str, course: str, b: dict, animate: bool) -> None:
         else:
             why = "kaynak" if tr else "cited"
         more = f" · {pi + 1}/{len(pages)}" if len(pages) > 1 else ""
-        return f"📄 {page['document']}, {kind} {page['page']} — {why}{more}"
+        return f":material/description: {page['document']}, {kind} {page['page']} — {why}{more}"
 
     left, right = st.columns([3, 2], gap="medium")
     with left:
@@ -208,7 +208,7 @@ def _page_lesson(mid: str, course: str, b: dict, animate: bool) -> None:
     def points(upto: int) -> None:
         pts = [bt.get("point") for bt in beats[:upto] if bt.get("point")]
         if pts:
-            points_box.markdown(f"**📌 {'Anahtar noktalar' if tr else 'Key points'}**\n\n"
+            points_box.markdown(f"**:material/push_pin: {'Anahtar noktalar' if tr else 'Key points'}**\n\n"
                                 + "\n".join(f"- {p}" for p in pts))
 
     if animate:
@@ -228,9 +228,9 @@ def _page_lesson(mid: str, course: str, b: dict, animate: bool) -> None:
     with right:
         _say(f"say_{mid}_pend", lesson.get("closing", ""), animate)
         if lesson.get("summary"):
-            st.markdown(f"**🧾 {'Özet' if tr else 'Summary'}**\n\n" + "\n".join(f"- {x}" for x in lesson["summary"]))
+            st.markdown(f"**:material/summarize: {'Özet' if tr else 'Summary'}**\n\n" + "\n".join(f"- {x}" for x in lesson["summary"]))
     if len(pages) > 1:
-        with st.expander("📄 " + ("Anlatımdaki diğer sayfalar" if tr else "Other pages in this explanation")):
+        with st.expander("Anlatımdaki diğer sayfalar" if tr else "Other pages in this explanation", icon=":material/description:"):
             for pi in range(1, len(pages)):
                 st.caption(caption(pi))
                 _page_image(st, course, pages[pi], pages[pi].get("highlights") or [])
@@ -260,18 +260,18 @@ def _video_progress(m: dict) -> None:
     if job["state"] in ("done", "error"):
         st.rerun()   # the whole page, so the player replaces this progress bar
     st.progress(float(job.get("progress") or 0.0),
-                text=f"🎞️ Recording the explanation video… {_STAGES.get(job.get('stage'), '')}")
+                text=f"Recording the explanation video… {_STAGES.get(job.get('stage'), '')}")
 
 
 def _video(m: dict) -> None:
     job = m.get("video_job")
     if not job:
         return
-    st.markdown("**🎞️ Explanation video**")
+    st.markdown("**:material/movie: Explanation video**")
     if job["state"] == "done":
         st.video(api.lecture_video_url(job["id"]))
         if not job.get("voice") and m.get("board") and st.button(
-                "🔁 Record again with voice", key=f"vid_voice_{m['mid']}",
+                "Record again with voice", key=f"vid_voice_{m['mid']}", icon=":material/replay:",
                 help="The voice could not be downloaded last time; this tries again."):
             m["video_job"] = start_video(m["question"], m["course"], m["board"])
             st.rerun()
@@ -285,13 +285,13 @@ def _video(m: dict) -> None:
         if bits:
             st.caption(" · ".join(bits))
         for note in job.get("notes") or []:
-            st.caption(f"ℹ️ {note}")
+            st.caption(f":material/info: {note}")
     elif job["state"] == "error":
         st.caption(f"The video could not be made: {job.get('error')}")
         if "No module named" in str(job.get("error")):
             st.caption("A package of requirements.txt is missing on the server: run "
                        "`pip install -r requirements.txt` and restart uvicorn.")
-        if m.get("board") and st.button("🔁 Try again", key=f"vid_retry_{m['mid']}"):
+        if m.get("board") and st.button("Try again", key=f"vid_retry_{m['mid']}", icon=":material/replay:"):
             m["video_job"] = start_video(m["question"], m["course"], m["board"])
             st.rerun()
     else:
@@ -309,21 +309,21 @@ def render(m: dict, course: str) -> None:
     animate = mid not in ss.board_shown
     with st.container(border=True, key=f"board_{mid}"):
         head, btn = st.columns([4, 1])
-        head.markdown("**🧑‍🏫 The lecturer explains**")
+        head.markdown("**:material/co_present: The lecturer explains**")
         if not animate and b["view"] in ("whiteboard", "page"):
-            if btn.button("🔁 Explain again", key=f"again_{mid}"):
+            if btn.button("Explain again", key=f"again_{mid}", icon=":material/replay:"):
                 ss.board_shown.discard(mid)
                 if b.get("video"):
                     ss.board_focus = mid
                 st.rerun()
         if b.get("video"):
             v = b["video"]
-            st.caption(f"🎬 From the lecture video at {mmss(v['start_ms'])}–{mmss(v['end_ms'])}"
+            st.caption(f":material/movie: From the lecture video at {mmss(v['start_ms'])}–{mmss(v['end_ms'])}"
                        + (" · playing in the corner" if ss.get("board_focus") == mid else ""))
         if b["view"] == "whiteboard":
             _whiteboard(mid, b["whiteboard"], animate, _tr(b))
             if b.get("page") and b["page"].get("renderable"):
-                with st.expander("📄 Related page in the course material"):
+                with st.expander("Related page in the course material", icon=":material/description:"):
                     _page_image(st, course, b["page"], b["page"].get("highlights") or [])
         elif b["view"] == "page":
             _page_lesson(mid, course, b, animate)
@@ -332,14 +332,14 @@ def render(m: dict, course: str) -> None:
         if b.get("video"):
             v = b["video"]
             if ss.get("board_focus") == mid:
-                if st.button("✖ Close video", key=f"close_{mid}"):
+                if st.button("Close video", key=f"close_{mid}", icon=":material/close:"):
                     ss.board_focus = None
                     st.rerun()
             elif st.button(f"▶ Play {mmss(v['start_ms'])}–{mmss(v['end_ms'])} in the corner", key=f"play_{mid}"):
                 ss.board_focus = mid
                 st.rerun()
         for note in b.get("notes") or []:
-            st.caption(f"ℹ️ {note}")
+            st.caption(f":material/info: {note}")
 
 
 def corner(chat: list[dict]) -> None:
